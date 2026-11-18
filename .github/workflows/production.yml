@@ -107,6 +107,7 @@ jobs:
               --target "$GITHUB_SHA" \
               --title "Deezer Update Tracker v0.1.0" \
               --notes "Première version Android signée. Projet expérimental : les sources Deezer (APKMirror, APKPure, Play Store) peuvent nécessiter des ajustements. Le mode Jamais désactive les notifications en arrière-plan. Les futures versions utilisent la même clé de signature Android pour permettre les mises à jour dans l'application."
+          fi
       - name: Remove private signing key
         if: always()
         shell: bash
