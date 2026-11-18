@@ -47,7 +47,7 @@ class TrackerEngine(private val context: Context) {
             if (enabled.isEmpty()) {
                 return@withContext store.snapshot()
             }
-            val results = readAllSources(enabled)
+            val results = readAllSources(context, enabled)
             val fresh = store.merge(results)
             if (background && store.frequencyMinutes != 0 && fresh.isNotEmpty()) {
                 UpdateNotifications.show(context, fresh)
