@@ -1,0 +1,107 @@
+name: Production APK (signed)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: production-apk
+  cancel-in-progress: false
+
+jobs:
+  signed:
+    if: github.repository == 'Epikaigle/deezer-update-tracker' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK requirements
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER" || { echo "Android sdkmanager missing"; exit 1; }
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "platforms;android-35" "build-tools;35.0.0"
+      - name: Verify Android version metadata
+        shell: bash
+        run: |
+          grep -Eq 'versionCode = 1' app/build.gradle.kts
+          grep -Eq 'versionName = "0.1.0"' app/build.gradle.kts
+      - name: Prepare private keystore
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "One or more Android signing secrets are missing."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/release.p12"
+          chmod 600 "$RUNNER_TEMP/release.p12"
+          test -s "$RUNNER_TEMP/release.p12"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+      - name: Test and build signed release
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease
+      - name: Verify APK signature and prepare distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          mkdir -p dist
+          cp "$APK" dist/deezer-update-tracker-v0.1.0.apk
+          cd dist
+          sha256sum *.apk > SHA256SUMS.txt
+      - name: Upload signed build (even when a release already exists)
+        uses: actions/upload-artifact@v4
+        with:
+          name: deezer-update-tracker-release-signed
+          path: |
+            dist/*.apk
+            dist/SHA256SUMS.txt
+          retention-days: 30
+          if-no-files-found: error
+      - name: Publish initial GitHub Release if not already published
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v0.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v0.1.0 already exists; avoiding an accidental overwrite."
+          else
+            gh release create v0.1.0 dist/deezer-update-tracker-v0.1.0.apk dist/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Deezer Update Tracker v0.1.0" \
+              --notes "Première version Android signée. Projet expérimental : les sources Deezer (APKMirror, APKPure, Play Store) peuvent nécessiter des ajustements. Le mode Jamais désactive les notifications en arrière-plan. Les futures versions utilisent la même clé de signature Android pour permettre les mises à jour dans l'application."
+      - name: Remove private signing key
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/release.p12"
