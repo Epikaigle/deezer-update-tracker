@@ -89,24 +89,23 @@ jobs:
             dist/SHA256SUMS.txt
           retention-days: 30
           if-no-files-found: error
-      - name: Publish initial GitHub Release if not already published
+      - name: Publish signed GitHub Release for a new version
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ "$APP_VERSION" != "0.1.0" ]; then
-            echo "Only the initial release is created automatically; later versions use release.yml."
-            exit 0
-          fi
-          if gh release view v0.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "v0.1.0 already exists; avoiding an accidental overwrite."
+          TAG="v${APP_VERSION}"
+          ASSET="dist/deezer-update-tracker-${TAG}.apk"
+          test -s "$ASSET"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$TAG already exists; preserving published assets and signature."
           else
-            gh release create v0.1.0 dist/deezer-update-tracker-v0.1.0.apk dist/SHA256SUMS.txt \
+            gh release create "$TAG" "$ASSET" dist/SHA256SUMS.txt \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "Deezer Update Tracker v0.1.0" \
-              --notes "Première version Android signée. Projet expérimental : les sources Deezer (APKMirror, APKPure, Play Store) peuvent nécessiter des ajustements. Le mode Jamais désactive les notifications en arrière-plan. Les futures versions utilisent la même clé de signature Android pour permettre les mises à jour dans l'application."
+              --title "Deezer Update Tracker $TAG" \
+              --notes "Release Android signée avec la même clé de production. APK vérifiée par apksigner et SHA-256. L'installation depuis une version antérieure nécessite la confirmation d'Android."
           fi
       - name: Remove private signing key
         if: always()
