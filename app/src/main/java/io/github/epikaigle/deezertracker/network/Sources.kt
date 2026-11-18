@@ -108,9 +108,13 @@ class GooglePlayPage : VersionSource {
     }
 }
 
-suspend fun readAllSources(): List<SourceResult> = coroutineScope {
+suspend fun readAllSources(
+    enabled: Set<Source> = Source.entries.toSet()
+): List<SourceResult> = coroutineScope {
     val client = SourceClient()
-    listOf(ApkMirrorFeed(), ApkPureHistory(), GooglePlayPage()).map { provider ->
+    listOf(ApkMirrorFeed(), ApkPureHistory(), GooglePlayPage())
+        .filter { it.source in enabled }
+        .map { provider ->
         async(Dispatchers.IO) {
             try {
                 SourceResult(provider.source, provider.fetch(client))
