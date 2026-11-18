@@ -2,10 +2,13 @@ package io.github.epikaigle.deezertracker.selfupdate
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import androidx.core.content.pm.PackageInfoCompat
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import io.github.epikaigle.deezertracker.network.VersionParsing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -43,13 +46,16 @@ object ReleaseUpdater {
         }
         val json = JSONObject(body)
         val version = json.optString("tag_name").removePrefix("v")
+        if (!version.matches(Regex("""[0-9]+\.[0-9]+\.[0-9]+"""))) {
+            throw IOException("Numéro de version GitHub invalide")
+        }
         val installed = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
-        if (!newerThan(version, installed)) return@withContext null
+        if (VersionParsing.compare(version, installed) <= 0) return@withContext null
         val assets = json.optJSONArray("assets") ?: return@withContext null
         for (i in 0 until assets.length()) {
             val asset = assets.optJSONObject(i) ?: continue
             val name = asset.optString("name")
-            if (!name.startsWith("deezer-update-tracker-v") || !name.endsWith(".apk")) continue
+            if (name != "deezer-update-tracker-v$"+"{version}.apk") continue
             val url = asset.optString("browser_download_url")
             val digest = asset.optString("digest").removePrefix("sha256:")
             if (!url.startsWith("https://github.com/Epikaigle/deezer-update-tracker/releases/download/")) continue
@@ -59,17 +65,6 @@ object ReleaseUpdater {
             return@withContext OwnRelease(version, json.optString("body"), url, digest.lowercase())
         }
         null
-    }
-
-    private fun newerThan(a: String, b: String): Boolean {
-        val first = a.split(".").map { it.toIntOrNull() ?: 0 }
-        val second = b.split(".").map { it.toIntOrNull() ?: 0 }
-        for (i in 0 until maxOf(first.size, second.size)) {
-            val x = first.getOrElse(i) { 0 }
-            val y = second.getOrElse(i) { 0 }
-            if (x != y) return x > y
-        }
-        return false
     }
 
     suspend fun download(context: Context, release: OwnRelease): File = withContext(Dispatchers.IO) {
@@ -111,8 +106,32 @@ object ReleaseUpdater {
         }
     }
 
+    /**
+     * Check archive package and Android versionCode before asking the OS to install.
+     * Android still enforces the same signing certificate for an in-place update.
+     */
+    @Suppress("DEPRECATION")
+    fun validateInstallableApk(context: Context, file: File) {
+        if (!file.isFile || file.length() == 0L) throw IOException("APK introuvable")
+        val pm = context.packageManager
+        val archive = if (Build.VERSION.SDK_INT >= 33) {
+            pm.getPackageArchiveInfo(file.absolutePath, PackageManager.PackageInfoFlags.of(0L))
+        } else {
+            pm.getPackageArchiveInfo(file.absolutePath, 0)
+        } ?: throw SecurityException("Le fichier téléchargé n'est pas une APK Android valide")
+        if (archive.packageName != context.packageName) {
+            throw SecurityException("Package Android inattendu : " + archive.packageName)
+        }
+        val installed = pm.getPackageInfo(context.packageName, 0)
+        if (PackageInfoCompat.getLongVersionCode(archive) <=
+            PackageInfoCompat.getLongVersionCode(installed)) {
+            throw SecurityException("La mise à jour ne contient pas un versionCode supérieur")
+        }
+    }
+
     /** Returns false if Android requires the user to enable "install unknown apps" first. */
     fun requestInstall(context: Context, file: File): Boolean {
+        validateInstallableApk(context, file)
         if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
             context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:${context.packageName}")))
