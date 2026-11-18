@@ -21,6 +21,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -157,11 +163,11 @@ private fun TrackerScreen() {
     BackHandler(enabled = tab != Tab.OVERVIEW) { selectedTab = Tab.OVERVIEW.ordinal }
 
     val frequencies = listOf(
-        0 to "Jamais · vérification seulement à l'ouverture",
-        30 to "Toutes les 30 minutes",
-        60 to "Toutes les heures",
-        180 to "Toutes les 3 heures",
-        720 to "Toutes les 12 heures"
+        0 to "Jamais",
+        30 to "30 min",
+        60 to "1 h",
+        180 to "3 h",
+        720 to "12 h"
     )
 
     Scaffold(
@@ -173,13 +179,13 @@ private fun TrackerScreen() {
                         onClick = { selectedTab = option.ordinal },
                         icon = {
                             when (option) {
-                                Tab.OVERVIEW -> Icon(Icons.Default.Home, contentDescription = null)
-                                Tab.HISTORY -> Icon(Icons.Default.History, contentDescription = null)
-                                Tab.SETTINGS -> Icon(Icons.Default.Settings, contentDescription = null)
+                                Tab.OVERVIEW -> Icon(Icons.Default.Home, contentDescription = option.label)
+                                Tab.HISTORY -> Icon(Icons.Default.History, contentDescription = option.label)
+                                Tab.SETTINGS -> Icon(Icons.Default.Settings, contentDescription = option.label)
                             }
                         },
-                        label = { Text(option.label) },
-                        alwaysShowLabel = true
+                        label = null,
+                        alwaysShowLabel = false
                     )
                 }
             }
@@ -193,95 +199,67 @@ private fun TrackerScreen() {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+
                     item {
-                        Text("Deezer Update Tracker", style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold)
-                        Text("Suivi indépendant des versions de Deezer",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer)
-                        ) {
-                            Column(Modifier.fillMaxWidth().padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("Dernières versions de Deezer",
-                                    style = MaterialTheme.typography.titleLarge)
-                                Text("Sources : APKMirror, APKPure, Google Play. Aucune installation de Deezer nécessaire.")
-                                Button(
-                                    onClick = { refresh() },
-                                    enabled = !refreshing && snapshot.enabledSources.isNotEmpty()
-                                ) {
-                                    if (refreshing) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(18.dp), strokeWidth = 2.dp
-                                        )
-                                    } else Text("Vérifier maintenant")
-                                }
-                                if (refreshing) Text("Interrogation des sources…",
-                                    style = MaterialTheme.typography.bodySmall)
-                                if (trackerMessage.isNotEmpty()) Text(trackerMessage,
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall)
-                                if (snapshot.enabledSources.isEmpty()) Text(
-                                    "Toutes les sources sont désactivées. Active-les dans Paramètres.")
-                                if (snapshot.frequencyMinutes > 0 && !notificationsGranted) {
-                                    Text("Les alertes sont désactivées dans Android.",
-                                        color = MaterialTheme.colorScheme.error,
-                                        style = MaterialTheme.typography.bodySmall)
-                                    OutlinedButton(onClick = {
-                                        if (Build.VERSION.SDK_INT >= 33) {
-                                            requestNotificationPermission.launch(
-                                                Manifest.permission.POST_NOTIFICATIONS)
-                                        }
-                                    }) { Text("Autoriser les alertes") }
-                                }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Deezer", style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            if (refreshing) {
+                                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                            } else IconButton(
+                                enabled = snapshot.enabledSources.isNotEmpty(),
+                                onClick = { refresh() }
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Actualiser Deezer")
+                            }
+                        }
+                        if (trackerMessage.isNotEmpty()) Text(trackerMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error)
+                        if (snapshot.frequencyMinutes > 0 && !notificationsGranted) {
+                            IconButton(onClick = {
+                                if (Build.VERSION.SDK_INT >= 33)
+                                    requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }) {
+                                Icon(Icons.Default.NotificationsOff,
+                                    contentDescription = "Autoriser les notifications")
                             }
                         }
                     }
                     item {
-                        SectionTitle("Mises à jour de cette application")
-                        Spacer(Modifier.height(8.dp))
                         OutlinedCard {
-                            Column(Modifier.fillMaxWidth().padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
                                 val current = remember {
                                     context.packageManager.getPackageInfo(context.packageName, 0)
                                         .versionName ?: "?"
                                 }
-                                Text("Version installée : $current")
-                                if (searchingForUpdate) {
-                                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                                    Text("Vérification de GitHub Releases…")
-                                } else if (selfRelease == null) {
-                                    Text("Aucune nouvelle version proposée.",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                } else {
-                                    Text("Version ${selfRelease!!.version} disponible",
+                                Column(Modifier.weight(1f)) {
+                                    Text("App $current", style = MaterialTheme.typography.titleMedium)
+                                    if (selfRelease != null) Text("→ ${selfRelease!!.version}",
                                         color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold)
-                                    if (selfRelease!!.notes.isNotBlank()) Text(
-                                        selfRelease!!.notes.take(500),
                                         style = MaterialTheme.typography.bodySmall)
-                                    Button(
-                                        enabled = !installing,
-                                        onClick = { installLatest() }
-                                    ) {
-                                        Text(if (installing) "Téléchargement en cours…"
-                                             else if (savedApk != null) "Installer la mise à jour"
-                                             else "Télécharger et installer")
-                                    }
                                 }
-                                OutlinedButton(
-                                    onClick = { checkOurUpdate() },
-                                    enabled = !searchingForUpdate && !installing
-                                ) { Text("Rechercher une mise à jour") }
-                                if (updaterMessage.isNotEmpty()) Text(updaterMessage,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("APK signée, empreinte SHA-256 vérifiée ; confirmation Android obligatoire.",
-                                    style = MaterialTheme.typography.bodySmall)
+                                if (searchingForUpdate || installing) {
+                                    CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                                } else if (selfRelease != null) {
+                                    IconButton(onClick = { installLatest() }) {
+                                        Icon(Icons.Default.Download,
+                                            contentDescription = "Télécharger et installer la mise à jour")
+                                    }
+                                } else Icon(Icons.Default.CheckCircle,
+                                    contentDescription = "Application à jour",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp))
+                                IconButton(onClick = { checkOurUpdate() },
+                                    enabled = !searchingForUpdate && !installing) {
+                                    Icon(Icons.Default.Refresh,
+                                        contentDescription = "Rechercher une mise à jour de l'application")
+                                }
                             }
+                            if (updaterMessage.isNotEmpty()) Text(updaterMessage,
+                                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+                                style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     item { SectionTitle("État des sources") }
