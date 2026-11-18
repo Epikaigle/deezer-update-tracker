@@ -44,27 +44,35 @@ object ReleaseUpdater {
             if (!response.isSuccessful) throw IOException("GitHub HTTP ${response.code}")
             response.body?.string() ?: throw IOException("Réponse GitHub vide")
         }
+        val installed = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
+        parseRelease(body, installed)
+    }
+
+    /** Pure parser kept separate from the HTTP call for repeatable security tests. */
+    internal fun parseRelease(body: String, installed: String): OwnRelease? {
         val json = JSONObject(body)
         val version = json.optString("tag_name").removePrefix("v")
         if (!version.matches(Regex("""[0-9]+\.[0-9]+\.[0-9]+"""))) {
             throw IOException("Numéro de version GitHub invalide")
         }
-        val installed = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
-        if (VersionParsing.compare(version, installed) <= 0) return@withContext null
-        val assets = json.optJSONArray("assets") ?: return@withContext null
+        if (VersionParsing.compare(version, installed) <= 0) return null
+        val assets = json.optJSONArray("assets") ?: return null
+        val filename = "deezer-update-tracker-v" + version + ".apk"
+        val expectedUrl =
+            "https://github.com/Epikaigle/deezer-update-tracker/releases/download/v" +
+            version + "/" + filename
         for (i in 0 until assets.length()) {
             val asset = assets.optJSONObject(i) ?: continue
-            val name = asset.optString("name")
-            if (name != "deezer-update-tracker-v$"+"{version}.apk") continue
+            if (asset.optString("name") != filename) continue
             val url = asset.optString("browser_download_url")
+            if (url != expectedUrl) continue
             val digest = asset.optString("digest").removePrefix("sha256:")
-            if (!url.startsWith("https://github.com/Epikaigle/deezer-update-tracker/releases/download/")) continue
             if (!digest.matches(Regex("[a-fA-F0-9]{64}"))) {
                 throw IOException("Empreinte SHA-256 GitHub indisponible : installation bloquée")
             }
-            return@withContext OwnRelease(version, json.optString("body"), url, digest.lowercase())
+            return OwnRelease(version, json.optString("body"), url, digest.lowercase())
         }
-        null
+        return null
     }
 
     suspend fun download(context: Context, release: OwnRelease): File = withContext(Dispatchers.IO) {
