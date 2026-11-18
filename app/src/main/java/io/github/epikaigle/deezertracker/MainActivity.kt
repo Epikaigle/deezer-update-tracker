@@ -77,13 +77,13 @@ private fun TrackerScreen() {
     var savedApk by remember { mutableStateOf<File?>(null) }
     var search by remember { mutableStateOf("") }
 
+    var permissionRefresh by remember { mutableIntStateOf(0) }
     val requestNotificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* The UI shows the permission state, whether granted or refused. */ }
+    ) { permissionRefresh++ }
     val notificationsGranted = Build.VERSION.SDK_INT < 33 ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
-    var permissionRefresh by remember { mutableIntStateOf(0) }
     // Triggers recomposition of the permission hint after an Android permission decision.
     @Suppress("UNUSED_VARIABLE") val trackedPermission = permissionRefresh
 
@@ -407,7 +407,6 @@ private fun TrackerScreen() {
                                         if (Build.VERSION.SDK_INT >= 33) {
                                             requestNotificationPermission.launch(
                                                 Manifest.permission.POST_NOTIFICATIONS)
-                                            permissionRefresh++
                                         }
                                     }) { Text("Autoriser les notifications") }
                                 }
