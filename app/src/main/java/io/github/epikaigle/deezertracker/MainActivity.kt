@@ -317,10 +317,6 @@ private fun TrackerScreen() {
                                             Intent(Intent.ACTION_VIEW, Uri.parse(latest.url)))
                                     }) { Text("Consulter la source") }
                                 }
-                                if (state != null && active) {
-                                    Text("Contrôlée : " + formatted(state.checkedAt),
-                                        style = MaterialTheme.typography.bodySmall)
-                                }
                             }
                         }
                     }
@@ -331,52 +327,14 @@ private fun TrackerScreen() {
                     }
                 }
 
-                Tab.HISTORY -> {
-                    val history = snapshot.releases.asSequence()
-                        .filter { snapshot.includeBeta || !it.beta }
-                        .filter { search.isBlank() ||
-                            it.version.contains(search, ignoreCase = true) ||
-                            it.source.title.contains(search, ignoreCase = true) }
-                        .sortedWith { a, b ->
-                            val versionOrder = VersionParsing.compare(b.version, a.version)
-                            if (versionOrder != 0) versionOrder
-                            else (b.publishedAt ?: b.detectedAt)
-                                .compareTo(a.publishedAt ?: a.detectedAt)
-                        }
-                        .take(200)
-                        .toList()
-                    LazyColumn(
-                        modifier = listModifier,
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        item {
-                            SectionTitle("Historique Deezer")
-                            Text("${snapshot.releases.size} versions ou variantes enregistrées",
-                                style = MaterialTheme.typography.bodySmall)
-                            Spacer(Modifier.height(12.dp))
-                            OutlinedTextField(
-                                value = search,
-                                onValueChange = { search = it.take(80) },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Rechercher une version ou une source") },
-                                singleLine = true
-                            )
-                        }
-                        if (history.isEmpty()) {
-                            item {
-                                Text("Aucune version correspondante. Vérifie les sources depuis l'accueil.",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        } else {
-                            items(history, key = { it.key }) { release ->
-                                ReleaseTile(release) {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.url)))
-                                }
-                            }
-                        }
+                Tab.HISTORY -> HistoryColumns(
+                    snapshot = snapshot,
+                    search = search,
+                    onSearch = { search = it },
+                    onOpen = { url ->
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     }
-                }
+                )
 
                 Tab.SETTINGS -> LazyColumn(
                     modifier = listModifier,
@@ -508,31 +466,6 @@ private fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
 }
 
-@Composable
-private fun ReleaseTile(release: Release, onOpen: () -> Unit) {
-    OutlinedCard(onClick = onOpen, shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(release.version, fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium)
-                if (release.beta) Text("BÊTA",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium)
-            }
-            Text(release.source.title, color = MaterialTheme.colorScheme.primary)
-            if (release.versionCode != null) Text("Build Android : " + release.versionCode,
-                style = MaterialTheme.typography.bodySmall)
-            Text(
-                if (release.publishedAt != null) "Publiée : " + formatted(release.publishedAt)
-                else "Date de publication non fournie",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Text("Détectée : " + formatted(release.detectedAt) + " · Ouvrir la source",
-                style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
 
 private fun formatted(timestamp: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.FRENCH)

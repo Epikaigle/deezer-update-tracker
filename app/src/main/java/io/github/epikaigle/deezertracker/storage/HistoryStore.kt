@@ -34,7 +34,8 @@ class HistoryStore(context: Context) {
         val history = prefs.getString("releases", "[]") ?: "[]"
         val statuses = prefs.getString("status", "[]") ?: "[]"
         return Snapshot(
-            decodeReleases(history).sortedByDescending { it.detectedAt },
+            decodeReleases(history).sortedWith(compareByDescending<Release> { it.publishedAt ?: 0L }
+                .thenByDescending { it.detectedAt }),
             decodeStatus(statuses).sortedBy { it.source.ordinal },
             frequencyMinutes, includeBeta, enabledSources
         )
@@ -60,7 +61,7 @@ class HistoryStore(context: Context) {
             val success = result.error == null
             state[result.source] = SourceStatus(
                 result.source, success,
-                if (success) "${result.releases.size} version(s) lue(s)" else result.error.orEmpty(),
+                if (success) "${result.releases.distinctBy { it.version }.size} version(s), ${result.releases.size} variante(s)" else result.error.orEmpty(),
                 now
             )
             if (!success) continue
@@ -81,7 +82,7 @@ class HistoryStore(context: Context) {
         }
 
         prefs.edit()
-            .putString("releases", encodeReleases(previous.sortedByDescending { it.detectedAt }.take(500)))
+            .putString("releases", encodeReleases(previous.sortedByDescending { it.detectedAt }.take(1500)))
             .putString("status", encodeStatus(state.values.toList()))
             .putStringSet("baseline", baseline)
             .apply()
@@ -98,7 +99,16 @@ class HistoryStore(context: Context) {
                 if (o.isNull("published")) null else o.optLong("published"),
                 o.optLong("detected"),
                 versionCode = if (o.has("versionCode") && !o.isNull("versionCode"))
-                    o.optLong("versionCode") else null
+                    o.optLong("versionCode") else null,
+                fileType = if (o.has("fileType") && !o.isNull("fileType"))
+                    o.optString("fileType").takeIf { it.isNotBlank() } else null,
+                architectures = o.optJSONArray("architectures")?.let { a ->
+                    (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }
+                } ?: emptyList(),
+                densities = o.optJSONArray("densities")?.let { a ->
+                    (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }
+                } ?: emptyList(),
+                minApi = if (o.has("minApi") && !o.isNull("minApi")) o.optInt("minApi") else null
             )
         }
     }.getOrDefault(emptyList())
@@ -109,7 +119,11 @@ class HistoryStore(context: Context) {
                 .put("url", r.url).put("beta", r.beta)
                 .put("published", r.publishedAt ?: JSONObject.NULL)
                 .put("detected", r.detectedAt)
-                .put("versionCode", r.versionCode ?: JSONObject.NULL))
+                .put("versionCode", r.versionCode ?: JSONObject.NULL)
+                .put("fileType", r.fileType ?: JSONObject.NULL)
+                .put("architectures", JSONArray(r.architectures))
+                .put("densities", JSONArray(r.densities))
+                .put("minApi", r.minApi ?: JSONObject.NULL))
         }
     }.toString()
 

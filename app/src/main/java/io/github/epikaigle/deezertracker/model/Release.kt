@@ -13,10 +13,17 @@ data class Release(
     val beta: Boolean,
     val publishedAt: Long?,
     val detectedAt: Long = System.currentTimeMillis(),
-    val versionCode: Long? = null
+    val versionCode: Long? = null,
+    /** File extension/type only when the provider explicitly exposes it. */
+    val fileType: String? = null,
+    val architectures: List<String> = emptyList(),
+    val densities: List<String> = emptyList(),
+    val minApi: Int? = null
 ) {
     // A single display version may have different variants/builds.
-    val key: String get() = "${source.name}:${version.lowercase()}:${versionCode ?: "unknown"}"
+    val key: String get() = listOf(source.name, version.lowercase(), versionCode ?: "unknown",
+        fileType.orEmpty(), architectures.joinToString(","), densities.joinToString(","),
+        minApi ?: "?", url).joinToString(":")
 }
 
 data class SourceStatus(

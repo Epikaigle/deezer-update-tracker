@@ -17,6 +17,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.URI
 import org.json.JSONObject
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
@@ -41,6 +44,20 @@ class SourceClient {
                 response.body?.string() ?: throw IOException("Réponse vide")
             }
         }
+
+    suspend fun postJson(url: String, json: String, headers: Map<String, String>): String =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder().url(url)
+                .header("User-Agent", "DeezerUpdateTracker/0.1 (+https://github.com/Epikaigle/deezer-update-tracker)")
+                .header("Accept", "application/json")
+                .post(json.toRequestBody("application/json; charset=utf-8".toMediaType()))
+            headers.forEach { (name, value) -> request.header(name, value) }
+            client.newCall(request.build()).execute().use { response ->
+                if (!response.isSuccessful) throw IOException("HTTP ${response.code} — accès API APKMirror indisponible")
+                response.body?.string() ?: throw IOException("Réponse API APKMirror vide")
+            }
+        }
+
 }
 
 interface VersionSource {
@@ -48,24 +65,143 @@ interface VersionSource {
     suspend fun fetch(client: SourceClient): List<Release>
 }
 
-class ApkMirrorFeed : VersionSource {
+
+/**
+ * APKUpdater 3.x / Obtainium use APKMirror's JSON app_exists endpoint for
+ * latest release and build variants. The published shared credential is not
+ * a private user secret; APKMirror may revoke or rate-limit it without notice.
+ */
+class ApkMirrorFeed(private val context: Context) : VersionSource {
     override val source = Source.APKMIRROR
+
     override suspend fun fetch(client: SourceClient): List<Release> {
-        // Based on Obtainium's public-RSS fallback (no APKMirror private API token).
-        val xml = client.get("${source.website}feed/")
-        val doc = Jsoup.parse(xml, "", Parser.xmlParser())
-        val releases = doc.select("item").take(30).mapNotNull { item ->
+        var apiError: String? = null
+        val api = try {
+            val response = client.postJson(
+                "https://www.apkmirror.com/wp-json/apkm/v1/app_exists/",
+                JSONObject().put("pnames", org.json.JSONArray().put("deezer.android.app"))
+                    .put("exclude", org.json.JSONArray()).toString(),
+                mapOf("Authorization" to ApkMirrorApiParser.PUBLIC_APKUPDATER_AUTH)
+            )
+            ApkMirrorApiParser.parse(response)
+        } catch (e: Exception) {
+            apiError = e.message ?: "Réponse API invalide"
+            emptyList()
+        }
+
+        // The RSS feed may provide older releases. Many devices see Cloudflare
+        // HTTP 403, so pause retries for 12h after a failure.
+        val prefs = context.getSharedPreferences("apkmirror_rss", Context.MODE_PRIVATE)
+        val lastBlocked = prefs.getLong("blocked_at", 0L)
+        var feedError: String? = null
+        val feed = if (System.currentTimeMillis() - lastBlocked >= 12L * 60 * 60 * 1000) {
+            try {
+                val releases = parseFeed(client.get("${source.website}feed/"))
+                prefs.edit().remove("blocked_at").apply()
+                releases
+            } catch (e: Exception) {
+                feedError = e.message ?: "Flux indisponible"
+                prefs.edit().putLong("blocked_at", System.currentTimeMillis()).apply()
+                emptyList()
+            }
+        } else emptyList()
+
+        val latestVersions = api.map { it.version.lowercase() }.toSet()
+        // API variants win over a general RSS entry for the same version.
+        val result = api + feed.filter { it.version.lowercase() !in latestVersions }
+        if (result.isNotEmpty()) return result.distinctBy { it.key }
+        throw IOException("APKMirror indisponible : API ${apiError ?: "sans résultat"} ; RSS ${feedError ?: "temporairement bloqué"}")
+    }
+
+    internal fun parseFeed(xml: String): List<Release> {
+        val document = Jsoup.parse(xml, "", Parser.xmlParser())
+        val releases = document.select("item").take(50).mapNotNull { item ->
             val title = item.selectFirst("title")?.text().orEmpty()
             val version = VersionParsing.extract(title) ?: return@mapNotNull null
-            val url = item.selectFirst("link")?.text().orEmpty().ifBlank { source.website }
-            if (!url.startsWith("https://www.apkmirror.com/") && !url.startsWith("https://apkmirror.com/")) {
-                return@mapNotNull null
-            }
-            Release(source, version, url, VersionParsing.isBeta(title + " " + version),
+            val link = item.selectFirst("link")?.text().orEmpty().ifBlank { source.website }
+            val url = ApkMirrorApiParser.absoluteLink(link) ?: return@mapNotNull null
+            Release(source, version, url, VersionParsing.isBeta(title),
                 VersionParsing.date(item.selectFirst("pubDate")?.text()))
-        }.distinctBy { it.version.lowercase() }
-        if (releases.isEmpty()) throw IOException("Flux RSS vide, modifié ou protégé par CAPTCHA")
-        return releases
+        }
+        if (releases.isEmpty()) throw IOException("Flux RSS vide ou non exploitable")
+        return releases.distinctBy { it.version.lowercase() }
+    }
+}
+
+/** Only consume fields explicitly provided by APKMirror. Do not guess APK vs bundle. */
+object ApkMirrorApiParser {
+    // Intentionally public upstream credential, used by APKUpdater and Obtainium.
+    // Third-party shared access is not guaranteed and can be withdrawn.
+    const val PUBLIC_APKUPDATER_AUTH =
+        "Basic YXBpLWFwa3VwZGF0ZXI6cm01cmNmcnVVakt5MDRzTXB5TVBKWFc4"
+    private const val HOST = "www.apkmirror.com"
+
+    fun absoluteLink(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        return runCatching {
+            val base = URI("https://www.apkmirror.com/")
+            val url = base.resolve(raw.trim()).normalize()
+            if (url.scheme == "https" && url.host in listOf(HOST, "apkmirror.com"))
+                url.toString() else null
+        }.getOrNull()
+    }
+
+    private fun labels(item: JSONObject, name: String): List<String> {
+        val array = item.optJSONArray(name) ?: return emptyList()
+        return (0 until array.length()).map { array.optString(it).trim() }
+            .filter { it.isNotBlank() }.distinct()
+    }
+
+    private fun typeFrom(item: JSONObject, url: String): String? {
+        val raw = listOf("file_type", "format", "download_type", "type")
+            .firstNotNullOfOrNull { key -> item.optString(key).takeIf { it.isNotBlank() } }
+            ?.trim()?.lowercase()
+        val path = runCatching { URI(url).path.lowercase() }.getOrDefault("")
+        return when {
+            raw in listOf("apk", "single apk") || path.endsWith(".apk") -> "APK"
+            raw in listOf("apkm", "apk bundle") || path.endsWith(".apkm") -> "APKM"
+            raw == "apks" || path.endsWith(".apks") -> "APKS"
+            raw == "xapk" || path.endsWith(".xapk") -> "XAPK"
+            raw == "aab" || path.endsWith(".aab") -> "AAB"
+            raw == "bundle" || raw == "split" -> "Bundle (extension inconnue)"
+            else -> null
+        }
+    }
+
+    fun parse(json: String): List<Release> {
+        val data = JSONObject(json).optJSONArray("data")
+            ?: throw IOException("API APKMirror : liste data absente")
+        val releases = mutableListOf<Release>()
+        for (i in 0 until data.length()) {
+            val item = data.optJSONObject(i) ?: continue
+            if (item.optString("pname") != "deezer.android.app" ||
+                item.optBoolean("exists") != true) continue
+            val general = item.optJSONObject("release") ?: continue
+            val version = VersionParsing.extract(general.optString("version")) ?: continue
+            val releaseUrl = absoluteLink(general.optString("link"))
+                ?: Source.APKMIRROR.website
+            val releaseDate = VersionParsing.date(general.optString("publish_date"))
+            val beta = VersionParsing.isBeta(version)
+            val variants = item.optJSONArray("apks")
+            if (variants == null || variants.length() == 0) {
+                releases.add(Release(Source.APKMIRROR, version, releaseUrl, beta, releaseDate))
+                continue
+            }
+            for (v in 0 until variants.length()) {
+                val variant = variants.optJSONObject(v) ?: continue
+                val link = absoluteLink(variant.optString("link")) ?: releaseUrl
+                val buildCode = variant.optLong("version_code").takeIf { it > 0L }
+                releases.add(Release(Source.APKMIRROR, version, link, beta,
+                    VersionParsing.date(variant.optString("publish_date")) ?: releaseDate,
+                    versionCode = buildCode,
+                    fileType = typeFrom(variant, link),
+                    architectures = labels(variant, "arches"),
+                    densities = labels(variant, "dpis"),
+                    minApi = variant.optString("minapi").toIntOrNull()))
+            }
+        }
+        if (releases.isEmpty()) throw IOException("API APKMirror : aucune version Deezer exploitable")
+        return releases.distinctBy { it.key }
     }
 }
 
@@ -150,7 +286,7 @@ suspend fun readAllSources(
     enabled: Set<Source> = Source.entries.toSet()
 ): List<SourceResult> = coroutineScope {
     val client = SourceClient()
-    listOf(ApkMirrorFeed(), ApkPureHistory(), GooglePlayPage(context))
+    listOf(ApkMirrorFeed(context), ApkPureHistory(), GooglePlayPage(context))
         .filter { it.source in enabled }
         .map { provider ->
         async(Dispatchers.IO) {
