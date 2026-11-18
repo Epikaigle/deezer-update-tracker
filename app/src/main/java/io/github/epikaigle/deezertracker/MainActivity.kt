@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -67,7 +68,8 @@ private fun TrackerScreen() {
     val context = LocalContext.current
     val store = remember(context) { HistoryStore(context) }
     val scope = rememberCoroutineScope()
-    var tab by remember { mutableStateOf(Tab.OVERVIEW) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(Tab.OVERVIEW.ordinal) }
+    val tab = Tab.entries[selectedTab]
     var snapshot by remember { mutableStateOf(store.snapshot()) }
     var refreshing by remember { mutableStateOf(false) }
     var searchingForUpdate by remember { mutableStateOf(true) }
@@ -76,7 +78,7 @@ private fun TrackerScreen() {
     var trackerMessage by remember { mutableStateOf("") }
     var installing by remember { mutableStateOf(false) }
     var savedApk by remember { mutableStateOf<File?>(null) }
-    var search by remember { mutableStateOf("") }
+    var search by rememberSaveable { mutableStateOf("") }
 
     var permissionRefresh by remember { mutableIntStateOf(0) }
     val requestNotificationPermission = rememberLauncherForActivityResult(
@@ -152,7 +154,7 @@ private fun TrackerScreen() {
         checkOurUpdate()
     }
 
-    BackHandler(enabled = tab != Tab.OVERVIEW) { tab = Tab.OVERVIEW }
+    BackHandler(enabled = tab != Tab.OVERVIEW) { selectedTab = Tab.OVERVIEW.ordinal }
 
     val frequencies = listOf(
         0 to "Jamais · vérification seulement à l'ouverture",
@@ -168,7 +170,7 @@ private fun TrackerScreen() {
                 Tab.entries.forEach { option ->
                     NavigationBarItem(
                         selected = tab == option,
-                        onClick = { tab = option },
+                        onClick = { selectedTab = option.ordinal },
                         icon = {
                             when (option) {
                                 Tab.OVERVIEW -> Icon(Icons.Default.Home, contentDescription = null)
