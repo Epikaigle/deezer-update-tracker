@@ -18,6 +18,12 @@ class VersionParsingTest {
         assertTrue(VersionParsing.compare("8.0.22.0-alpha", "8.0.22.0-beta") < 0)
         assertEquals(0, VersionParsing.compare("8.0.22.0", "8.0.22"))
     }
+    @Test fun supportsISOAndLocalDates() {
+        assertNotNull(VersionParsing.date("2026-11-18"))
+        assertNotNull(VersionParsing.date("2026-11-18 09:30:00"))
+        assertNotNull(VersionParsing.date("2026-11-18T09:30:00Z"))
+        assertNull(VersionParsing.date("unknown"))
+    }
     @Test fun parsesFeedDate() {
         assertNotNull(VersionParsing.date("Wed, 18 Nov 2026 10:00:00 GMT"))
     }
