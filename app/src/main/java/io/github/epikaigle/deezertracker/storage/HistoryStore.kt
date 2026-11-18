@@ -2,6 +2,7 @@ package io.github.epikaigle.deezertracker.storage
 
 import android.content.Context
 import io.github.epikaigle.deezertracker.model.*
+import io.github.epikaigle.deezertracker.network.VersionParsing
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -36,6 +37,7 @@ class HistoryStore(context: Context) {
     @Synchronized
     fun merge(results: List<SourceResult>): List<Release> {
         val previous = snapshot().releases.toMutableList()
+        val previouslyNewest = previous.maxWithOrNull { a, b -> VersionParsing.compare(a.version, b.version) }?.version
         val knownKeys = previous.mapTo(mutableSetOf()) { it.key }
         val knownVersions = previous.mapTo(mutableSetOf()) { it.version.lowercase() }
         val baseline = (prefs.getStringSet("baseline", emptySet()) ?: emptySet()).toMutableSet()
@@ -57,7 +59,8 @@ class HistoryStore(context: Context) {
                 val entry = release.copy(detectedAt = now)
                 previous.add(entry)
                 if (!firstSuccess && knownVersions.add(entry.version.lowercase())
-                    && (includeBeta || !entry.beta)) {
+                    && (includeBeta || !entry.beta)
+                    && (previouslyNewest == null || VersionParsing.compare(entry.version, previouslyNewest) > 0)) {
                     newlyDetected.add(entry)
                 } else {
                     knownVersions.add(entry.version.lowercase())
