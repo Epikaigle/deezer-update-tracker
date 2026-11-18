@@ -263,6 +263,10 @@ private fun ReleaseTile(release: Release, onOpen: () -> Unit) {
                     style = MaterialTheme.typography.labelMedium)
             }
             Text(release.source.title, color = MaterialTheme.colorScheme.primary)
+            if (release.versionCode != null) {
+                Text("Build Android : ${release.versionCode}",
+                    style = MaterialTheme.typography.bodySmall)
+            }
             if (release.publishedAt != null) {
                 Text("Publiée : ${formatted(release.publishedAt)}",
                     style = MaterialTheme.typography.bodySmall)

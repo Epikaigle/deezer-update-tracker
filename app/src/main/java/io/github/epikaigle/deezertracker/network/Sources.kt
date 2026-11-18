@@ -83,10 +83,12 @@ class ApkPureHistory : VersionSource {
             if (version.isBlank()) continue
             val publishedAt = VersionParsing.date(item.optString("update_date"))
             val channel = VersionParsing.isBeta(version + " " + item.optString("title"))
-            entries.add(Release(source, version, source.website, channel, publishedAt))
+            val code = item.optLong("version_code").takeIf { it > 0 }
+            entries.add(Release(source, version, source.website, channel, publishedAt,
+                versionCode = code))
         }
         if (entries.isEmpty()) throw IOException("Aucun historique Deezer exploitable sur APKPure")
-        return entries.distinctBy { it.version.lowercase() }
+        return entries.distinctBy { it.key }
     }
 }
 

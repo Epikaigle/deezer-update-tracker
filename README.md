@@ -5,7 +5,7 @@ Application Android communautaire **non officielle** pour surveiller les publica
 ## Fonctionnalités
 
 - Trois sources surveillées indépendamment : **APKMirror** (flux RSS public), **APKPure** (historique de versions) et **Google Play** (métadonnées publiques lorsque la version est affichée).
-- Versions stables **et bêta**, avec dates publiées lorsqu'elles sont disponibles, date de détection, liens et historique local.
+- Versions stables **et bêta**, avec dates publiées lorsqu'elles sont disponibles, **codes de version Android** si la source les fournit, date de détection, liens et historique local.
 - Notifications Android sur les nouvelles versions, sans doublon entre sources.
 - Fréquence : **Jamais** (aucun travail en arrière-plan ni notification, actualisation à l'ouverture), 30 min, 1 h, 3 h ou 12 h.
 - Recherche de mises à jour de **Deezer Update Tracker** via GitHub Releases et installation d'une APK signée depuis l'application, après confirmation Android.

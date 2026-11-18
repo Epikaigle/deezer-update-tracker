@@ -85,7 +85,9 @@ class HistoryStore(context: Context) {
                 Source.valueOf(o.getString("source")), o.getString("version"),
                 o.getString("url"), o.optBoolean("beta"),
                 if (o.isNull("published")) null else o.optLong("published"),
-                o.optLong("detected")
+                o.optLong("detected"),
+                versionCode = if (o.has("versionCode") && !o.isNull("versionCode"))
+                    o.optLong("versionCode") else null
             )
         }
     }.getOrDefault(emptyList())
@@ -95,7 +97,8 @@ class HistoryStore(context: Context) {
             put(JSONObject().put("source", r.source.name).put("version", r.version)
                 .put("url", r.url).put("beta", r.beta)
                 .put("published", r.publishedAt ?: JSONObject.NULL)
-                .put("detected", r.detectedAt))
+                .put("detected", r.detectedAt)
+                .put("versionCode", r.versionCode ?: JSONObject.NULL))
         }
     }.toString()
 
