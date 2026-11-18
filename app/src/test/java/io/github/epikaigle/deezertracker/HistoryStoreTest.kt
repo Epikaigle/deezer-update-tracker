@@ -102,4 +102,19 @@ class HistoryStoreTest {
         reopened.enabledSources = emptySet()
         assertTrue(HistoryStore(RuntimeEnvironment.getApplication()).enabledSources.isEmpty())
     }
+    @Test fun technicalVariantsPersistSeparatelyAcrossRestart() {
+        val first = Release(Source.APKMIRROR, "9.0.27.2", "https://www.apkmirror.com/a",
+            false, 1794390000000L, versionCode = 100L, fileType = "APKM",
+            architectures = listOf("arm64-v8a"), densities = listOf("nodpi"), minApi = 26)
+        val second = first.copy(url = "https://www.apkmirror.com/b",
+            versionCode = 101L, fileType = "APK", architectures = listOf("x86_64"))
+        assertTrue(store.merge(listOf(SourceResult(Source.APKMIRROR, listOf(first, second)))).isEmpty())
+        val saved = HistoryStore(RuntimeEnvironment.getApplication()).snapshot().releases
+        assertEquals(2, saved.size)
+        assertEquals(setOf("APKM", "APK"), saved.mapNotNull { it.fileType }.toSet())
+        assertTrue(saved.any { it.architectures == listOf("arm64-v8a") && it.minApi == 26 })
+        assertTrue(store.merge(listOf(SourceResult(Source.APKMIRROR, listOf(first, second)))).isEmpty())
+        assertEquals(2, store.snapshot().releases.size)
+    }
+
 }
