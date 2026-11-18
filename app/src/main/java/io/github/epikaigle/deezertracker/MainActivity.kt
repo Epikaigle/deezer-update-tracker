@@ -262,47 +262,50 @@ private fun TrackerScreen() {
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    item { SectionTitle("État des sources") }
-                    items(Source.entries.toList(), key = { it.name }) { source ->
+
+                    items(listOf(Source.GOOGLE_PLAY, Source.APKMIRROR, Source.APKPURE),
+                        key = { it.name }) { source ->
+                        val status = snapshot.statuses.firstOrNull { it.source == source }
                         val active = source in snapshot.enabledSources
-                        val state = snapshot.statuses.firstOrNull { it.source == source }
+                        val latest = snapshot.releases
+                            .filter { it.source == source && (snapshot.includeBeta || !it.beta) }
+                            .maxWithOrNull { x, y -> VersionParsing.compare(x.version, y.version) }
                         OutlinedCard {
-                            Column(Modifier.fillMaxWidth().padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Text(source.title, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    when {
-                                        !active -> "Désactivée dans Paramètres"
-                                        state == null -> "En attente de la première vérification"
-                                        state.ok -> "✓ " + state.message
-                                        else -> "⚠ " + state.message
-                                    },
-                                    color = if (active && state?.ok == false)
-                                        MaterialTheme.colorScheme.error
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                val latest = snapshot.releases
-                                    .filter { it.source == source && (snapshot.includeBeta || !it.beta) }
-                                    .maxWithOrNull { a, b -> VersionParsing.compare(a.version, b.version) }
-                                if (latest != null) {
-                                    Text("Dernière version observée : " + latest.version)
-                                    if (latest.publishedAt != null) Text(
-                                        "Publiée : " + formatted(latest.publishedAt),
-                                        style = MaterialTheme.typography.bodySmall)
-                                    TextButton(onClick = {
-                                        context.startActivity(
-                                            Intent(Intent.ACTION_VIEW, Uri.parse(latest.url)))
-                                    }) { Text("Consulter la source") }
+                            Row(
+                                Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp,
+                                    top = 8.dp, bottom = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(source.title, fontWeight = FontWeight.SemiBold)
+                                        Spacer(Modifier.width(8.dp))
+                                        if (active && status != null) Icon(
+                                            if (status.ok) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                            contentDescription = if (status.ok) "Source OK"
+                                                else status.message,
+                                            tint = if (status.ok) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Text(latest?.version ?: "—",
+                                        style = MaterialTheme.typography.titleMedium)
+                                    if (active && status?.ok == false) Text(status.message,
+                                        maxLines = 2,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error)
+                                }
+                                if (latest != null) IconButton(onClick = {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(latest.url)))
+                                }) {
+                                    Icon(Icons.Default.OpenInNew,
+                                        contentDescription = "Ouvrir ${source.title}")
                                 }
                             }
                         }
                     }
-                    item {
-                        Text("Les sources tierces peuvent être indisponibles ou ne pas exposer leur version.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall)
-                    }
+
                 }
 
                 Tab.HISTORY -> HistoryColumns(
