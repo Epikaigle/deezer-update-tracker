@@ -100,7 +100,8 @@ class HistoryStore(context: Context) {
                 o.optLong("detected"),
                 versionCode = if (o.has("versionCode") && !o.isNull("versionCode"))
                     o.optLong("versionCode") else null,
-                fileType = o.optString("fileType").takeIf { it.isNotBlank() },
+                fileType = if (o.has("fileType") && !o.isNull("fileType"))
+                    o.optString("fileType").takeIf { it.isNotBlank() } else null,
                 architectures = o.optJSONArray("architectures")?.let { a ->
                     (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }
                 } ?: emptyList(),
