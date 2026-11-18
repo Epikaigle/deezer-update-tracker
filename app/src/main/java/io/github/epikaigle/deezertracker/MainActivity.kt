@@ -226,6 +226,17 @@ private fun TrackerScreen() {
                                     style = MaterialTheme.typography.bodySmall)
                                 if (snapshot.enabledSources.isEmpty()) Text(
                                     "Toutes les sources sont désactivées. Active-les dans Paramètres.")
+                                if (snapshot.frequencyMinutes > 0 && !notificationsGranted) {
+                                    Text("Les alertes sont désactivées dans Android.",
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.bodySmall)
+                                    OutlinedButton(onClick = {
+                                        if (Build.VERSION.SDK_INT >= 33) {
+                                            requestNotificationPermission.launch(
+                                                Manifest.permission.POST_NOTIFICATIONS)
+                                        }
+                                    }) { Text("Autoriser les alertes") }
+                                }
                             }
                         }
                     }
