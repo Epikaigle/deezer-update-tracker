@@ -76,8 +76,9 @@ object TrackerScheduler {
 
     fun configure(context: Context) {
         val work = WorkManager.getInstance(context)
-        val interval = HistoryStore(context).frequencyMinutes
-        if (interval == 0) {
+        val store = HistoryStore(context)
+        val interval = store.frequencyMinutes
+        if (interval == 0 || store.enabledSources.isEmpty()) {
             work.cancelUniqueWork(JOB)
             UpdateNotifications.dismiss(context)
             return
