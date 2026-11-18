@@ -1,53 +1,73 @@
 # Deezer Update Tracker
 
-Application Android communautaire **non officielle** pour surveiller les publications de Deezer (`deezer.android.app`) indépendamment de l'application installée.
+Application Android **non officielle et open source** permettant de suivre les versions de Deezer (`deezer.android.app`) depuis plusieurs plateformes, même lorsque Deezer n'est pas installé sur le téléphone.
+
+**[Télécharger la dernière APK signée](https://github.com/Epikaigle/deezer-update-tracker/releases/latest)** · [Voir les publications](https://github.com/Epikaigle/deezer-update-tracker/releases)
 
 ## Fonctionnalités
 
-- Trois sources surveillées indépendamment : **APKMirror** (API JSON de variantes, complétée par le RSS si accessible), **APKPure** (historique de versions) et **Google Play** (métadonnées via Aurora GPlayAPI et jeton anonyme).
-- Versions stables **et bêta**, dates de publication lorsqu'elles sont disponibles, **codes de version Android**, types APK/APKM/APKS/XAPK, architectures, DPI et Android minimum lorsqu'ils sont renseignés, liens et historique local.
-- Notifications Android sur les nouvelles versions, sans doublon entre sources.
-- Choix des sources à activer, accessible dans l'onglet Paramètres.
-- Interface en **3 onglets** (Accueil, Historique, Paramètres). L'historique comporte **3 grandes colonnes** (Google Play, APKPure, APKMirror) avec défilement horizontal sur téléphone ; chaque version regroupe ses variantes et sa **date de sortie uniquement**, sans date de détection.
-- Fréquence : **Jamais** (aucun travail en arrière-plan ni notification, actualisation à l'ouverture), 30 min, 1 h, 3 h ou 12 h.
-- Recherche de mises à jour de **Deezer Update Tracker** via GitHub Releases et installation d'une APK signée depuis l'application, après confirmation Android.
-- Fonctionne sans installer Deezer ni accéder à la liste des applications du téléphone.
+- **Trois sources indépendantes**, présentées dans cet ordre : **Google Play → APKMirror → APKPure**.
+- **Historique en trois lignes** : chaque source possède son propre carrousel horizontal de versions, avec recherche et cartes compactes.
+- Versions stables, bêta et autres préversions, selon les informations fournies par les sources et les filtres activés.
+- **Date de publication** lorsqu'elle est disponible ; les dates de première détection ne sont pas affichées dans l'interface.
+- **Variantes** regroupées par version : format de fichier (APK, APKM, APKS, etc.), architecture, densité d'écran, niveau d'API Android et code de version **uniquement quand la source fournit ces données**.
+- Alertes Android pour les nouvelles versions, avec dédoublonnage entre les sources et choix de la fréquence. Le mode **Jamais** désactive les vérifications périodiques et les notifications ; une vérification reste possible à l'ouverture ou manuellement.
+- Interface volontairement compacte et principalement basée sur des icônes, accompagnées de descriptions d'accessibilité.
+- Mise à jour de Deezer Update Tracker depuis **GitHub Releases**, avec vérification du fichier et confirmation d'installation par Android.
 
-> ⚠️ **Statut : prototype en développement.** Les sites tiers peuvent renvoyer des CAPTCHA/403 ou ne pas exposer de version exploitable. L'accès API APKMirror emploie l'identifiant partagé **publié** par APKUpdater (comme Obtainium), qui n'est pas une autorisation spécifique à notre application : il peut être limité, refusé ou révoqué. Une source inaccessible est signalée en erreur et n'est jamais interprétée comme « aucune mise à jour ». Aurora OSS peut limiter ou refuser les connexions anonymes. Aucune promesse de couverture exhaustive ni de détection en temps réel.
+Les informations, préférences et versions observées sont conservées localement ; une source indisponible ne supprime pas son historique.
 
-## Sources et confidentialité
+## Fonctionnement des sources
 
-Les requêtes sont émises **depuis le téléphone** vers les sites concernés. Pour Google Play, l'app envoie à **Aurora OSS** un profil technique Android (modèle, build et autres informations système) pour obtenir une session anonyme ; aucun compte Google personnel n'est requis. Aucun compte, aucune télémétrie et aucun serveur personnel. Les versions et les préférences restent en stockage privé Android. Aucun CAPTCHA n'est contourné et aucun secret privé de projet tiers n'est copié. L'endpoint APKPure non officiel utilise l'en-tête de client public `projecta`, documenté dans les adaptateurs open source ; son fonctionnement peut changer à tout moment.
+| Source | Informations récupérées | Limites |
+| --- | --- | --- |
+| **Google Play** | Version courante via **Aurora GPlayAPI** et session anonyme Aurora OSS | Pas d'archive publique des versions passées fournie par ce connecteur. Les versions antérieures apparaissent uniquement si elles ont déjà été observées et enregistrées. La date de sortie peut être absente. |
+| **APKMirror** | Dernière publication et variantes depuis l'API `app_exists` ; tentative de lecture des publications antérieures depuis la page publique et le flux RSS | L'API ne fournit pas un historique complet. L'archive publique peut renvoyer HTTP 403, présenter un défi anti-bot ou changer de format. La lecture de la page est limitée aux publications récentes et les tentatives sont espacées. |
+| **APKPure** | Historique des versions via un endpoint non officiel | La disponibilité du service et les métadonnées retournées peuvent évoluer. |
 
-La date de publication affichée vient de la source ; si elle est indisponible, seule la date de **première détection** est affichée.
+Les résultats d'une plateforme ne sont **jamais attribués artificiellement à une autre**. Les formats, architectures et dates inconnus ne sont pas déduits ou inventés. Le premier relevé réussi de chaque source établit un point de départ sans envoyer d'alertes rétroactives ; les nouvelles versions observées ensuite peuvent déclencher des notifications.
 
-## Développer et compiler
+L'accès APKMirror s'appuie sur un identifiant partagé présent dans les projets open source [APKUpdater](https://github.com/rumboalla/apkupdater) et [Obtainium](https://github.com/ImranR98/Obtainium). Il ne constitue pas une garantie d'accès permanent : APKMirror peut refuser, limiter ou modifier le service. Les erreurs restent visibles au lieu d'être confondues avec une absence de mise à jour.
 
-- JDK 17 et Android SDK 35. Le **Gradle Wrapper 8.9** est inclus.
-- `./gradlew :app:assembleDebug` (l'APK de développement ne peut **pas** mettre à jour une APK publique signée avec une autre clé).
-- `./gradlew :app:testDebugUnitTest` (tests de détection, dédoublonnage, préférences et dates).
+## Confidentialité et sécurité
 
-GitHub Actions construit automatiquement une APK **debug** de test après chaque push. Sur `main`, le workflow `Production APK (signed)` compile, teste et publie automatiquement une **nouvelle** version de production quand son numéro de version a été augmenté. Les mêmes secrets signent toutes les versions. Une version déjà publiée n'est jamais écrasée. Voir [docs/RELEASES.md](docs/RELEASES.md).
+- Aucun compte personnel Google n'est demandé. **Aurora OSS reçoit des informations techniques sur l'appareil** pour établir une session anonyme d'accès à Google Play.
+- Les requêtes vers les plateformes sont effectuées depuis l'application Android, sans serveur de suivi personnel ni télémétrie intégrée.
+- Les préférences et les relevés sont enregistrés dans le stockage privé de l'application.
+- Aucun CAPTCHA ou dispositif de protection anti-bot n'est contourné automatiquement.
+- Les APK de cette application publiées sur GitHub sont signées avec la clé de production. Lors d'une mise à jour intégrée, l'APK téléchargée est vérifiée avant de demander l'installation à Android. L'installation nécessite la confirmation de l'utilisateur.
 
-## Configuration des versions
+## Installation
 
-Package cible : `deezer.android.app`. Package de cette application : `io.github.epikaigle.deezertracker`.
+1. Ouvrir **[la dernière publication](https://github.com/Epikaigle/deezer-update-tracker/releases/latest)** et télécharger l'APK de production.
+2. Installer l'APK sur Android et autoriser l'installation depuis la source utilisée si Android le demande.
+3. Dans l'application, choisir les sources et la fréquence de surveillance. Les mises à jour suivantes peuvent être recherchées et installées depuis l'application elle-même.
 
-Les releases officielles de ce dépôt sont à l'adresse https://github.com/Epikaigle/deezer-update-tracker/releases. Le premier lancement enregistre les versions déjà connues **sans notification rétroactive**. Google Play donne une version courante, non une archive complète ; l'API APKMirror donne la dernière version et ses variantes, son RSS n'ajoute les anciennes que s'il est accessible. Aucun format APK/APKM/APKS n'est inventé lorsque les métadonnées ne le précisent. Le paramètre « Jamais » annule le travail périodique.
+**Pour mettre à jour une installation existante, utiliser une APK de production signée avec le même certificat.** Une APK debug signée autrement ne peut pas remplacer une installation de production.
 
-## Inspirations et licences
+## Développement
 
-Le design des connecteurs et de la surveillance est inspiré d'[APKUpdater](https://github.com/rumboalla/apkupdater) (branche `3.x`) et d'[Obtainium](https://github.com/ImranR98/Obtainium). Ces deux projets sont sous licence **GNU GPLv3**. Les connecteurs ici sont des implémentations autonomes : aucun mot de passe d'API ou secret privé issu de ces projets n'est copié.
+Le projet est écrit en **Kotlin** et utilise **Jetpack Compose**, **WorkManager** et **Gradle**. Les versions exactes des outils, du SDK et des dépendances sont définies dans les fichiers de configuration du dépôt, qui font autorité.
 
-Ce projet est distribué sous GNU GPLv3. **Deezer** est une marque de son propriétaire ; ce projet n'est ni affilié ni approuvé par Deezer, Google, APKMirror ou APKPure.
+```bash
+./gradlew :app:testDebugUnitTest
+./gradlew :app:lintDebug
+./gradlew :app:assembleDebug
+```
 
-## Validation de la mise à jour intégrée
+L'APK de test se trouve dans `app/build/outputs/apk/debug/`. Les contrôles sont également exécutés par **GitHub Actions**.
 
-La version `v0.1.0` est signée et distribuée sur GitHub Releases. La version `v0.1.1` corrige l'UX et la logique de suivi. Pour tester la mise à jour, installer **v0.1.0 de production**, ouvrir l'écran Accueil, vérifier que **v0.1.1** est proposée et confirmer son installation depuis l'application. Vérifier ensuite que les paramètres et l'historique local sont conservés. Un build de CI ne remplace pas ce test réel sur téléphone.
+### Organisation du développement et publications
 
+- **Branche de travail : `main` uniquement.** Les changements sont enregistrés directement sur `main`, sans branches de fonctionnalité ni pull requests systématiques.
+- Les commits ordinaires déclenchent la validation continue. **La publication de production requiert une augmentation explicite** de `versionCode` et `versionName` dans `app/build.gradle.kts` ; changer uniquement le README ne crée pas de nouvelle version.
+- Le workflow de production signe l'APK, vérifie le certificat, puis publie sur **GitHub Releases** si la version n'existe pas déjà.
+- La clé privée de signature et ses mots de passe ne doivent **jamais** être ajoutés au dépôt. Voir le [guide de signature et de publication](docs/RELEASES.md).
 
-## Interface compacte — v0.1.4
+Le **README décrit le fonctionnement du projet**, pas l'historique de chaque publication. Les notes, corrections et changements propres à une version doivent être documentés dans **GitHub Releases**, plutôt qu'ajoutés ici à chaque mise à jour.
 
-L'accueil, l'historique et les réglages sont conçus pour un usage personnel : actions représentées par des icônes accessibles (descriptions Android/TalkBack), libellés réduits, aucun texte d'aide permanent. Dans l'historique, **trois rangées** superposées (Google Play → APKMirror → APKPure), chacune déroulable horizontalement, montrent version, date de sortie (si connue), format et architecture (si connus). Appuyer sur l'icône des variantes pour les déplier.
+## Licence et attribution
 
-**Archives :** l'API Google Play/Aurora expose la version courante uniquement. Les versions passées sont conservées dès qu'elles sont observées par ce tracker, mais ne sont jamais inventées ou copiées d'une autre boutique. L'API APKMirror `app_exists` donne principalement la dernière version et ses variantes. Le tracker tente aussi de lire **jusqu'à 8 publications** de la liste publique APKMirror, puis utilise le flux RSS en repli. Si ces pages sont refusées (HTTP 403 / Cloudflare), seule la version de l'API et les archives déjà sauvegardées restent disponibles. Une tentative d'archive est espacée de 6 h après succès et de 12 h après échec afin de limiter les accès.
+Distribué sous licence **[GNU GPLv3](LICENSE)**. Certaines adaptations techniques s'inspirent de [APKUpdater](https://github.com/rumboalla/apkupdater) et d'[Obtainium](https://github.com/ImranR98/Obtainium) ; voir également [les notes sur les connecteurs](docs/APKUPDATER-CONNECTORS.md).
+
+Deezer est une marque de son propriétaire. Ce projet n'est affilié ni à Deezer, ni à Google, ni à Aurora OSS, ni à APKMirror, ni à APKPure.
