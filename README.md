@@ -4,16 +4,16 @@ Application Android communautaire **non officielle** pour surveiller les publica
 
 ## Fonctionnalités
 
-- Trois sources surveillées indépendamment : **APKMirror** (flux RSS public), **APKPure** (historique de versions) et **Google Play** (métadonnées via Aurora GPlayAPI et jeton anonyme).
-- Versions stables **et bêta**, avec dates publiées lorsqu'elles sont disponibles, **codes de version Android** si la source les fournit, date de détection, liens et historique local.
+- Trois sources surveillées indépendamment : **APKMirror** (API JSON de variantes, complétée par le RSS si accessible), **APKPure** (historique de versions) et **Google Play** (métadonnées via Aurora GPlayAPI et jeton anonyme).
+- Versions stables **et bêta**, dates de publication lorsqu'elles sont disponibles, **codes de version Android**, types APK/APKM/APKS/XAPK, architectures, DPI et Android minimum lorsqu'ils sont renseignés, liens et historique local.
 - Notifications Android sur les nouvelles versions, sans doublon entre sources.
 - Choix des sources à activer, accessible dans l'onglet Paramètres.
-- Interface en **3 onglets** (Accueil, Historique, Paramètres), recherche dans l'historique, largeur adaptée aux grands écrans et mise à jour de l'application accessible dès l'accueil.
+- Interface en **3 onglets** (Accueil, Historique, Paramètres). L'historique comporte **3 grandes colonnes** (Google Play, APKPure, APKMirror) avec défilement horizontal sur téléphone ; chaque version regroupe ses variantes et sa **date de sortie uniquement**, sans date de détection.
 - Fréquence : **Jamais** (aucun travail en arrière-plan ni notification, actualisation à l'ouverture), 30 min, 1 h, 3 h ou 12 h.
 - Recherche de mises à jour de **Deezer Update Tracker** via GitHub Releases et installation d'une APK signée depuis l'application, après confirmation Android.
 - Fonctionne sans installer Deezer ni accéder à la liste des applications du téléphone.
 
-> ⚠️ **Statut : prototype en développement.** Les sites tiers peuvent renvoyer des CAPTCHA/403 ou ne pas exposer de version exploitable. Une source inaccessible est signalée en erreur et n'est jamais interprétée comme « aucune mise à jour ». Aurora OSS peut limiter ou refuser les connexions anonymes. Aucune promesse de couverture exhaustive ni de détection en temps réel.
+> ⚠️ **Statut : prototype en développement.** Les sites tiers peuvent renvoyer des CAPTCHA/403 ou ne pas exposer de version exploitable. L'accès API APKMirror emploie l'identifiant partagé **publié** par APKUpdater (comme Obtainium), qui n'est pas une autorisation spécifique à notre application : il peut être limité, refusé ou révoqué. Une source inaccessible est signalée en erreur et n'est jamais interprétée comme « aucune mise à jour ». Aurora OSS peut limiter ou refuser les connexions anonymes. Aucune promesse de couverture exhaustive ni de détection en temps réel.
 
 ## Sources et confidentialité
 
@@ -33,7 +33,7 @@ GitHub Actions construit automatiquement une APK **debug** de test après chaque
 
 Package cible : `deezer.android.app`. Package de cette application : `io.github.epikaigle.deezertracker`.
 
-Les releases officielles de ce dépôt sont à l'adresse https://github.com/Epikaigle/deezer-update-tracker/releases. Le premier lancement enregistre les versions déjà connues **sans notification rétroactive**. Le paramètre « Jamais » annule le travail périodique.
+Les releases officielles de ce dépôt sont à l'adresse https://github.com/Epikaigle/deezer-update-tracker/releases. Le premier lancement enregistre les versions déjà connues **sans notification rétroactive**. Google Play donne une version courante, non une archive complète ; l'API APKMirror donne la dernière version et ses variantes, son RSS n'ajoute les anciennes que s'il est accessible. Aucun format APK/APKM/APKS n'est inventé lorsque les métadonnées ne le précisent. Le paramètre « Jamais » annule le travail périodique.
 
 ## Inspirations et licences
 
