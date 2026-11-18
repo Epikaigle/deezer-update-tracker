@@ -73,6 +73,7 @@ private fun TrackerScreen() {
     var searchingForUpdate by remember { mutableStateOf(true) }
     var selfRelease by remember { mutableStateOf<OwnRelease?>(null) }
     var updaterMessage by remember { mutableStateOf("") }
+    var trackerMessage by remember { mutableStateOf("") }
     var installing by remember { mutableStateOf(false) }
     var savedApk by remember { mutableStateOf<File?>(null) }
     var search by remember { mutableStateOf("") }
@@ -90,15 +91,16 @@ private fun TrackerScreen() {
     fun refresh() {
         if (refreshing) return
         if (store.enabledSources.isEmpty()) {
-            updaterMessage = "Active au moins une source dans Paramètres."
+            trackerMessage = "Active au moins une source dans Paramètres."
             return
         }
         scope.launch {
             refreshing = true
+            trackerMessage = ""
             try {
                 snapshot = TrackerEngine(context).check(background = false)
             } catch (e: Exception) {
-                updaterMessage = "Vérification Deezer impossible : " + (e.message ?: "erreur réseau")
+                trackerMessage = "Vérification Deezer impossible : " + (e.message ?: "erreur réseau")
             } finally {
                 refreshing = false
             }
@@ -216,6 +218,9 @@ private fun TrackerScreen() {
                                     } else Text("Vérifier maintenant")
                                 }
                                 if (refreshing) Text("Interrogation des sources…",
+                                    style = MaterialTheme.typography.bodySmall)
+                                if (trackerMessage.isNotEmpty()) Text(trackerMessage,
+                                    color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall)
                                 if (snapshot.enabledSources.isEmpty()) Text(
                                     "Toutes les sources sont désactivées. Active-les dans Paramètres.")
