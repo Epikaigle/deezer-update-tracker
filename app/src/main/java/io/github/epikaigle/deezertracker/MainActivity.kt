@@ -330,8 +330,6 @@ private fun TrackerScreen() {
                             Column(Modifier.fillMaxWidth().padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text("Notifications", fontWeight = FontWeight.Bold)
-                                Text("Jamais : aucune notification ni vérification en arrière-plan. Les données sont actualisées à l'ouverture.",
-                                    style = MaterialTheme.typography.bodySmall)
                                 frequencies.forEach { (minutes, description) ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth().clickable {
@@ -354,7 +352,6 @@ private fun TrackerScreen() {
                                     }
                                 }
                                 if (snapshot.frequencyMinutes > 0 && !notificationsGranted) {
-                                    HorizontalDivider()
 
                                     IconButton(onClick = {
                                         if (Build.VERSION.SDK_INT >= 33) {
@@ -366,8 +363,6 @@ private fun TrackerScreen() {
                                             contentDescription = "Autoriser les notifications")
                                     }
                                 }
-                                Text("Les horaires peuvent être décalés par l'économie de batterie Android.",
-                                    style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
@@ -375,8 +370,6 @@ private fun TrackerScreen() {
                         OutlinedCard {
                             Column(Modifier.fillMaxWidth().padding(12.dp)) {
                                 Text("Sources", fontWeight = FontWeight.Bold)
-                                Text("Une source indisponible n'empêche pas la surveillance des autres.",
-                                    style = MaterialTheme.typography.bodySmall)
                                 listOf(Source.GOOGLE_PLAY, Source.APKMIRROR, Source.APKPURE).forEach { source ->
                                     Row(
                                         Modifier.fillMaxWidth().clickable {
@@ -404,7 +397,7 @@ private fun TrackerScreen() {
                                     }
                                 }
                                 if (snapshot.enabledSources.isEmpty()) Text(
-                                    "Aucune source activée : aucune version ne sera récupérée.",
+                                    "Aucune source",
                                     color = MaterialTheme.colorScheme.error)
                             }
                         }
