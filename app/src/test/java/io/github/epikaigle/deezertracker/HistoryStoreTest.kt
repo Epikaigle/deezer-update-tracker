@@ -29,6 +29,48 @@ class HistoryStoreTest {
                         beta: Boolean = false, code: Long? = null) =
         Release(source, version, source.website, beta, null, versionCode = code)
 
+    @Test fun googlePlayVersionsArePersistentAcrossRefreshFailuresAndReopening() {
+        val play = Source.GOOGLE_PLAY
+        store.merge(listOf(SourceResult(play,
+            listOf(release("9.0.26.3", play, code = 9002603L)))))
+        store.merge(listOf(SourceResult(play,
+            listOf(release("9.0.27.1", play, code = 9002701L)))))
+        store.merge(listOf(SourceResult(play, error = "Aurora temporairement indisponible")))
+
+        val reopened = HistoryStore(RuntimeEnvironment.getApplication())
+        val saved = reopened.snapshot()
+        assertEquals(setOf("9.0.26.3", "9.0.27.1"),
+            saved.releases.filter { it.source == play }.map { it.version }.toSet())
+        assertFalse(saved.statuses.single { it.source == play }.ok)
+        // A subsequent successful check only returns the latest release.
+        reopened.merge(listOf(SourceResult(play,
+            listOf(release("9.0.27.1", play, code = 9002701L)))))
+        assertEquals(2, HistoryStore(RuntimeEnvironment.getApplication())
+            .snapshot().releases.count { it.source == play })
+    }
+
+    @Test fun historyBeyondOldGlobalLimitIsNeverSilentlyTruncated() {
+        val all = (0..1502).map { index -> release("9.0.${index}.0", Source.APKPURE) }
+        store.merge(listOf(SourceResult(Source.APKPURE, all)))
+        val reopened = HistoryStore(RuntimeEnvironment.getApplication())
+        assertEquals(all.size, reopened.snapshot().releases.count { it.source == Source.APKPURE })
+        // A Google Play check cannot evict other providers' already captured history.
+        reopened.merge(listOf(SourceResult(Source.GOOGLE_PLAY,
+            listOf(release("9.0.26.3", Source.GOOGLE_PLAY, code = 9002603L)))))
+        assertEquals(all.size + 1, store.snapshot().releases.size)
+    }
+
+    @Test fun corruptedPrimaryHistoryRecoversFromLocalBackup() {
+        val app = RuntimeEnvironment.getApplication()
+        store.merge(listOf(SourceResult(Source.GOOGLE_PLAY,
+            listOf(release("9.0.26.3", Source.GOOGLE_PLAY)))))
+        app.getSharedPreferences("tracker", Context.MODE_PRIVATE)
+            .edit().putString("releases", "invalid json").commit()
+        val recovered = HistoryStore(app).snapshot().releases
+        assertEquals(1, recovered.size)
+        assertEquals("9.0.26.3", recovered.single().version)
+    }
+
     @Test fun firstSuccessfulFetchCreatesBaselineWithoutNotification() {
         val new = store.merge(listOf(
             SourceResult(Source.APKMIRROR, listOf(release("9.0.24.5")))

@@ -31,10 +31,12 @@ class HistoryStore(context: Context) {
 
     @Synchronized
     fun snapshot(): Snapshot {
-        val history = prefs.getString("releases", "[]") ?: "[]"
+        val history = prefs.getString("releases", null)?.let(::decodeReleases)
+            ?: prefs.getString("releases_backup", null)?.let(::decodeReleases)
+            ?: emptyList()
         val statuses = prefs.getString("status", "[]") ?: "[]"
         return Snapshot(
-            decodeReleases(history).sortedWith(compareByDescending<Release> { it.publishedAt ?: 0L }
+            history.sortedWith(compareByDescending<Release> { it.publishedAt ?: 0L }
                 .thenByDescending { it.detectedAt }),
             decodeStatus(statuses).sortedBy { it.source.ordinal },
             frequencyMinutes, includeBeta, enabledSources
@@ -81,17 +83,24 @@ class HistoryStore(context: Context) {
             baseline.add(result.source.name)
         }
 
-        prefs.edit()
-            .putString("releases", encodeReleases(previous.sortedByDescending { it.detectedAt }.take(1500)))
+        // Deezer is a single tracked package: retaining every observed release is
+        // preferable to silently discarding old versions after 1500 APK variants.
+        // Duplicate the payload as a backup before reporting a successful check.
+        val historyJson = encodeReleases(previous.sortedByDescending { it.detectedAt })
+        val saved = prefs.edit()
+            .putString("releases", historyJson)
+            .putString("releases_backup", historyJson)
             .putString("status", encodeStatus(state.values.toList()))
             .putStringSet("baseline", baseline)
-            .apply()
+            .commit()
+        if (!saved) throw IllegalStateException("Impossible d'enregistrer l'historique local")
         return newlyDetected.distinctBy { it.version.lowercase() }
     }
 
-    private fun decodeReleases(raw: String) = runCatching {
+    private fun decodeReleases(raw: String): List<Release>? = runCatching {
         val a = JSONArray(raw)
-        (0 until a.length()).map { idx ->
+        // A single malformed entry must not erase other recorded versions.
+        (0 until a.length()).mapNotNull { idx -> runCatching {
             val o = a.getJSONObject(idx)
             Release(
                 Source.valueOf(o.getString("source")), o.getString("version"),
@@ -110,8 +119,8 @@ class HistoryStore(context: Context) {
                 } ?: emptyList(),
                 minApi = if (o.has("minApi") && !o.isNull("minApi")) o.optInt("minApi") else null
             )
-        }
-    }.getOrDefault(emptyList())
+        }.getOrNull() }
+    }.getOrNull()
 
     private fun encodeReleases(entries: List<Release>): String = JSONArray().apply {
         entries.forEach { r ->

@@ -108,6 +108,12 @@ internal fun HistoryColumns(
                             )
                         }
                     }
+                    if (source == Source.GOOGLE_PLAY && grouped.size <= 1) {
+                        Text("Google Play ne fournit pas d'archives publiques : les nouvelles versions seront conservées au fil des vérifications.",
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     if (grouped.isEmpty()) {
                         Text("—", modifier = Modifier.padding(start = 16.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant)

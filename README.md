@@ -15,7 +15,7 @@ Application Android **non officielle et open source** permettant de suivre les v
 - Interface volontairement compacte et principalement basée sur des icônes, accompagnées de descriptions d'accessibilité.
 - Mise à jour de Deezer Update Tracker depuis **GitHub Releases**, avec vérification du fichier et confirmation d'installation par Android.
 
-Les informations, préférences et versions observées sont conservées localement ; une source indisponible ne supprime pas son historique.
+Les informations, préférences et versions observées sont conservées localement ; une source indisponible ne supprime pas son historique. Les versions Deezer déjà relevées sont enregistrées sans l'ancienne limite globale de 1 500 variantes, avec une copie de secours locale. La conservation s'applique aux mises à jour de l'application utilisant la même identité Android ; **désinstaller l'application ou effacer ses données supprime cet historique local** (les sauvegardes Android automatiques sont désactivées).
 
 ## Fonctionnement des sources
 
