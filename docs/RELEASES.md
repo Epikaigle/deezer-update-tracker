@@ -27,7 +27,7 @@ Android requires user confirmation to install the APK. If Android requests permi
 
 ## Build and source limitations
 
-The Gradle build uses the CI-installed Gradle 8.9. Android Studio can also use Gradle 8.9; a wrapper JAR is not included in the initial commit. Google Play's public HTML might not expose a version at all, APKMirror RSS might require a challenge, and APKPure's unofficial endpoint might change. Source failures are shown in the app, not silently suppressed.
+The repository includes Gradle Wrapper 8.9 for local builds. GitHub Actions uses the CI-installed Gradle 8.9. Google Play's public HTML might not expose a version at all, APKMirror RSS might require a challenge, and APKPure's unofficial endpoint might change. Source failures are shown in the app, not silently suppressed.
 
 ## Version tracking behavior
 

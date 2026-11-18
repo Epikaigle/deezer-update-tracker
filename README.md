@@ -21,9 +21,9 @@ La date de publication affichée vient de la source ; si elle est indisponible, 
 
 ## Développer et compiler
 
-- JDK 17, Android SDK 35 et Gradle 8.9.
-- `gradle :app:assembleDebug` (l'APK de développement ne peut **pas** mettre à jour une APK publique signée avec une autre clé).
-- `gradle :app:testDebugUnitTest`.
+- JDK 17 et Android SDK 35. Le **Gradle Wrapper 8.9** est inclus.
+- `./gradlew :app:assembleDebug` (l'APK de développement ne peut **pas** mettre à jour une APK publique signée avec une autre clé).
+- `./gradlew :app:testDebugUnitTest`.
 
 GitHub Actions construit automatiquement une APK **debug** de test après chaque push. Une APK de production doit être **signée** avec une clé stable. Voir [docs/RELEASES.md](docs/RELEASES.md).
 

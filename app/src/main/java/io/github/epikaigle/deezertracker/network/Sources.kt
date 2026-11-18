@@ -4,6 +4,9 @@ import io.github.epikaigle.deezertracker.model.Release
 import io.github.epikaigle.deezertracker.model.Source
 import io.github.epikaigle.deezertracker.model.SourceResult
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -103,13 +106,15 @@ class GooglePlayPage : VersionSource {
     }
 }
 
-suspend fun readAllSources(): List<SourceResult> {
+suspend fun readAllSources(): List<SourceResult> = coroutineScope {
     val client = SourceClient()
-    return listOf(ApkMirrorFeed(), ApkPureHistory(), GooglePlayPage()).map { provider ->
-        try {
-            SourceResult(provider.source, provider.fetch(client))
-        } catch (exception: Exception) {
-            SourceResult(provider.source, error = exception.message ?: "Erreur de connexion")
+    listOf(ApkMirrorFeed(), ApkPureHistory(), GooglePlayPage()).map { provider ->
+        async(Dispatchers.IO) {
+            try {
+                SourceResult(provider.source, provider.fetch(client))
+            } catch (exception: Exception) {
+                SourceResult(provider.source, error = exception.message ?: "Erreur de connexion")
+            }
         }
-    }
+    }.awaitAll()
 }

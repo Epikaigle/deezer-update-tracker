@@ -67,7 +67,7 @@ class HistoryStore(context: Context) {
         }
 
         prefs.edit()
-            .putString("releases", encodeReleases(previous.takeLast(500)))
+            .putString("releases", encodeReleases(previous.sortedByDescending { it.detectedAt }.take(500)))
             .putString("status", encodeStatus(state.values.toList()))
             .putStringSet("baseline", baseline)
             .apply()
