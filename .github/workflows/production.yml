@@ -80,6 +80,24 @@ jobs:
           cp "$APK" dist/deezer-update-tracker-v${APP_VERSION}.apk
           cd dist
           sha256sum *.apk > SHA256SUMS.txt
+      - name: Verify signing certificate continuity with v0.1.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASELINE="$RUNNER_TEMP/baseline-v0.1.0.apk"
+          curl --fail --location --silent --show-error --retry 3 \
+            "https://github.com/Epikaigle/deezer-update-tracker/releases/download/v0.1.0/deezer-update-tracker-v0.1.0.apk" \
+            --output "$BASELINE"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$APKSIGNER" verify --verbose "$BASELINE"
+          EXISTING="$("$APKSIGNER" verify --print-certs "$BASELINE" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
+          NEW="$("$APKSIGNER" verify --print-certs "dist/deezer-update-tracker-v${APP_VERSION}.apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
+          test -n "$EXISTING" && test -n "$NEW"
+          if [ "$EXISTING" != "$NEW" ]; then
+            echo "ERROR: Android signing certificate changed; upgrades would fail."
+            exit 1
+          fi
+          echo "Signer certificate matches v0.1.0; in-place Android upgrades are allowed."
       - name: Upload signed build (even when a release already exists)
         uses: actions/upload-artifact@v4
         with:
