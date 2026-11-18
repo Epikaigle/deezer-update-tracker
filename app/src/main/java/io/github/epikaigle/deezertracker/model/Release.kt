@@ -12,9 +12,11 @@ data class Release(
     val url: String,
     val beta: Boolean,
     val publishedAt: Long?,
-    val detectedAt: Long = System.currentTimeMillis()
+    val detectedAt: Long = System.currentTimeMillis(),
+    val versionCode: Long? = null
 ) {
-    val key: String get() = "${source.name}:${version.lowercase()}"
+    // A single display version may have different variants/builds.
+    val key: String get() = "${source.name}:${version.lowercase()}:${versionCode ?: "unknown"}"
 }
 
 data class SourceStatus(
