@@ -20,3 +20,10 @@ Les tests unitaires vérifient le mapping des versions, pas l'authentification r
 - Les types de fichier APK, APKM, APKS et XAPK **ne sont affichés que si explicitement présents** (type, extension, métadonnée) ; un lien `-android-apk-download` ne suffit pas à supposer qu'il s'agit d'un APK simple.
 - Les versions provenant de Google Play, APKPure et APKMirror s'affichent en colonnes, la date de première détection reste stockée pour le dédoublonnage mais n'est plus affichée.
 - Après chaque modification du connecteur, valider l'accès API réel depuis un téléphone avant de conclure à la résolution de HTTP 403.
+
+
+## v0.1.4 — pages publiques APKMirror
+
+Le connecteur conserve l'API `app_exists` pour la dernière version et ses variantes. Il tente en complément une lecture limitée des entrées `appRow` de la page publique de l'application (liens de publications, versions, dates affichées). Ce n'est pas une API d'archive : HTML susceptible de changer, filtre strict sur le préfixe de lien Deezer, maximum huit versions, et aucune tentative de contournement Cloudflare. En cas de 403, les versions antérieures ne peuvent pas être récupérées immédiatement ; l'application conserve les archives locales et ne les remplace jamais par des versions provenant d'APKPure en les présentant comme APKMirror.
+
+Google Play fournit la version actuelle ; l'historique Google Play n'augmente que lorsqu'une nouvelle version a été réellement détectée par cette source.

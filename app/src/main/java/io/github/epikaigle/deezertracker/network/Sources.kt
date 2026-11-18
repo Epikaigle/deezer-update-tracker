@@ -89,6 +89,30 @@ class ApkMirrorFeed(private val context: Context) : VersionSource {
             emptyList()
         }
 
+        // API app_exists only gives the latest version and its variants.
+        // The public app listing can expose older releases, when accessible.
+        // Cache failures for 12h to avoid hammering a site returning HTTP 403.
+        val archivePrefs = context.getSharedPreferences("apkmirror_archive", Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val lastArchiveAttempt = archivePrefs.getLong("attempt_at", 0L)
+        val archiveInterval = if (archivePrefs.getBoolean("last_failed", false))
+            12L * 60 * 60 * 1000 else 6L * 60 * 60 * 1000
+        var archiveError: String? = null
+        val archive = if (now - lastArchiveAttempt >= archiveInterval) {
+            archivePrefs.edit().putLong("attempt_at", now).apply()
+            try {
+                val html = client.get(source.website)
+                val parsed = ApkMirrorArchive.parse(html, limit = 8)
+                if (parsed.isEmpty()) throw IOException("Archive APKMirror sans versions lisibles")
+                archivePrefs.edit().putBoolean("last_failed", false).apply()
+                parsed
+            } catch (e: Exception) {
+                archiveError = e.message
+                archivePrefs.edit().putBoolean("last_failed", true).apply()
+                emptyList()
+            }
+        } else emptyList()
+
         // The RSS feed may provide older releases. Many devices see Cloudflare
         // HTTP 403, so pause retries for 12h after a failure.
         val prefs = context.getSharedPreferences("apkmirror_rss", Context.MODE_PRIVATE)
@@ -106,11 +130,12 @@ class ApkMirrorFeed(private val context: Context) : VersionSource {
             }
         } else emptyList()
 
-        val latestVersions = api.map { it.version.lowercase() }.toSet()
-        // API variants win over a general RSS entry for the same version.
-        val result = api + feed.filter { it.version.lowercase() !in latestVersions }
+        val apiVersions = api.map { it.version.lowercase() }.toSet()
+        val archived = archive.filter { it.version.lowercase() !in apiVersions }
+        val covered = (api + archived).map { it.version.lowercase() }.toSet()
+        val result = api + archived + feed.filter { it.version.lowercase() !in covered }
         if (result.isNotEmpty()) return result.distinctBy { it.key }
-        throw IOException("APKMirror indisponible : API ${apiError ?: "sans résultat"} ; RSS ${feedError ?: "temporairement bloqué"}")
+        throw IOException("APKMirror indisponible : API ${apiError ?: "sans résultat"} ; archive ${archiveError ?: "en attente"} ; RSS ${feedError ?: "en attente"}")
     }
 
     internal fun parseFeed(xml: String): List<Release> {

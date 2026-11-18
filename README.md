@@ -44,3 +44,10 @@ Ce projet est distribué sous GNU GPLv3. **Deezer** est une marque de son propri
 ## Validation de la mise à jour intégrée
 
 La version `v0.1.0` est signée et distribuée sur GitHub Releases. La version `v0.1.1` corrige l'UX et la logique de suivi. Pour tester la mise à jour, installer **v0.1.0 de production**, ouvrir l'écran Accueil, vérifier que **v0.1.1** est proposée et confirmer son installation depuis l'application. Vérifier ensuite que les paramètres et l'historique local sont conservés. Un build de CI ne remplace pas ce test réel sur téléphone.
+
+
+## Interface compacte — v0.1.4
+
+L'accueil, l'historique et les réglages sont conçus pour un usage personnel : actions représentées par des icônes accessibles (descriptions Android/TalkBack), libellés réduits, aucun texte d'aide permanent. Dans l'historique, **trois rangées** superposées (Google Play → APKMirror → APKPure), chacune déroulable horizontalement, montrent version, date de sortie (si connue), format et architecture (si connus). Appuyer sur l'icône des variantes pour les déplier.
+
+**Archives :** l'API Google Play/Aurora expose la version courante uniquement. Les versions passées sont conservées dès qu'elles sont observées par ce tracker, mais ne sont jamais inventées ou copiées d'une autre boutique. L'API APKMirror `app_exists` donne principalement la dernière version et ses variantes. Le tracker tente aussi de lire **jusqu'à 8 publications** de la liste publique APKMirror, puis utilise le flux RSS en repli. Si ces pages sont refusées (HTTP 403 / Cloudflare), seule la version de l'API et les archives déjà sauvegardées restent disponibles. Une tentative d'archive est espacée de 6 h après succès et de 12 h après échec afin de limiter les accès.
