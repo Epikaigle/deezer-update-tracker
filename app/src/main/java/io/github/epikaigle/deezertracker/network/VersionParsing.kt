@@ -1,5 +1,6 @@
 package io.github.epikaigle.deezertracker.network
 
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
@@ -20,7 +21,9 @@ object VersionParsing {
         if (value.isNullOrBlank()) return null
         return runCatching { ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli() }
             .recoverCatching { java.time.Instant.parse(value).toEpochMilli() }
+            .recoverCatching { java.time.OffsetDateTime.parse(value.replace(" ", "T")).toInstant().toEpochMilli() }
             .recoverCatching { LocalDateTime.parse(value.replace(" ", "T")).toInstant(ZoneOffset.UTC).toEpochMilli() }
+            .recoverCatching { LocalDate.parse(value.take(10)).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
             .getOrNull()
     }
 }
