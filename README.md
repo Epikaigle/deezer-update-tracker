@@ -25,7 +25,7 @@ La date de publication affichée vient de la source ; si elle est indisponible, 
 - `./gradlew :app:assembleDebug` (l'APK de développement ne peut **pas** mettre à jour une APK publique signée avec une autre clé).
 - `./gradlew :app:testDebugUnitTest`.
 
-GitHub Actions construit automatiquement une APK **debug** de test après chaque push. Une APK de production doit être **signée** avec une clé stable. Voir [docs/RELEASES.md](docs/RELEASES.md).
+GitHub Actions construit automatiquement une APK **debug** de test après chaque push. La publication initiale et les futures versions de production sont **signées** avec une clé permanente stockée uniquement dans GitHub Actions Secrets. La première release est créée par le workflow `Production APK (signed)` après validation de sa signature, à condition que les quatre secrets soient correctement configurés. Voir [docs/RELEASES.md](docs/RELEASES.md).
 
 ## Configuration des versions
 
