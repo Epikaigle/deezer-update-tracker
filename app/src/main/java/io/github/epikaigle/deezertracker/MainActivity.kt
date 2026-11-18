@@ -323,15 +323,13 @@ private fun TrackerScreen() {
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     item {
-                        SectionTitle("Paramètres")
-                        Text("Configure la surveillance et les notifications.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SectionTitle("Réglages")
                     }
                     item {
                         OutlinedCard {
                             Column(Modifier.fillMaxWidth().padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Fréquence des notifications", fontWeight = FontWeight.Bold)
+                                Text("Notifications", fontWeight = FontWeight.Bold)
                                 Text("Jamais : aucune notification ni vérification en arrière-plan. Les données sont actualisées à l'ouverture.",
                                     style = MaterialTheme.typography.bodySmall)
                                 frequencies.forEach { (minutes, description) ->
@@ -357,15 +355,16 @@ private fun TrackerScreen() {
                                 }
                                 if (snapshot.frequencyMinutes > 0 && !notificationsGranted) {
                                     HorizontalDivider()
-                                    Text("Android n'autorise pas encore les notifications.",
-                                        color = MaterialTheme.colorScheme.error,
-                                        style = MaterialTheme.typography.bodySmall)
-                                    OutlinedButton(onClick = {
+
+                                    IconButton(onClick = {
                                         if (Build.VERSION.SDK_INT >= 33) {
                                             requestNotificationPermission.launch(
                                                 Manifest.permission.POST_NOTIFICATIONS)
                                         }
-                                    }) { Text("Autoriser les notifications") }
+                                    }) {
+                                        Icon(Icons.Default.NotificationsOff,
+                                            contentDescription = "Autoriser les notifications")
+                                    }
                                 }
                                 Text("Les horaires peuvent être décalés par l'économie de batterie Android.",
                                     style = MaterialTheme.typography.bodySmall)
@@ -375,10 +374,10 @@ private fun TrackerScreen() {
                     item {
                         OutlinedCard {
                             Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                                Text("Sources surveillées", fontWeight = FontWeight.Bold)
+                                Text("Sources", fontWeight = FontWeight.Bold)
                                 Text("Une source indisponible n'empêche pas la surveillance des autres.",
                                     style = MaterialTheme.typography.bodySmall)
-                                Source.entries.forEach { source ->
+                                listOf(Source.GOOGLE_PLAY, Source.APKMIRROR, Source.APKPURE).forEach { source ->
                                     Row(
                                         Modifier.fillMaxWidth().clickable {
                                             val newSelection = snapshot.enabledSources.toMutableSet()
@@ -417,9 +416,8 @@ private fun TrackerScreen() {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(Modifier.weight(1f)) {
-                                    Text("Inclure les versions bêta", fontWeight = FontWeight.Bold)
-                                    Text("Affiche aussi alpha, beta et RC",
-                                        style = MaterialTheme.typography.bodySmall)
+                                    Text("Bêta", fontWeight = FontWeight.Bold)
+                                    
                                 }
                                 Switch(
                                     checked = snapshot.includeBeta,
@@ -430,11 +428,6 @@ private fun TrackerScreen() {
                                 )
                             }
                         }
-                    }
-                    item {
-                        Text("Application non officielle · GNU GPLv3 · sans compte ni télémétrie.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
