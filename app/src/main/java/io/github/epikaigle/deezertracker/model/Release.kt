@@ -2,7 +2,7 @@ package io.github.epikaigle.deezertracker.model
 
 enum class Source(val title: String, val website: String) {
     APKMIRROR("APKMirror", "https://www.apkmirror.com/apk/deezer-music-player/deezer-music-podcast-player/"),
-    APKPURE("APKPure", "https://apkpure.net/deezer-music-podcast-player/deezer.android.app"),
+    APKPURE("APKPure", "https://apkpure.net/deezer-people-android-music/deezer.android.app"),
     GOOGLE_PLAY("Google Play", "https://play.google.com/store/apps/details?id=deezer.android.app")
 }
 
