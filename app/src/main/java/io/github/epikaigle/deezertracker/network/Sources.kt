@@ -76,18 +76,34 @@ class ApkMirrorFeed(private val context: Context) : VersionSource {
 
     override suspend fun fetch(client: SourceClient): List<Release> {
         var apiError: String? = null
-        val api = try {
-            val response = client.postJson(
+
+        suspend fun requestApi(excludeExperimental: Boolean): List<Release> =
+            ApkMirrorApiParser.parse(client.postJson(
                 "https://www.apkmirror.com/wp-json/apkm/v1/app_exists/",
-                JSONObject().put("pnames", org.json.JSONArray().put("deezer.android.app"))
-                    .put("exclude", org.json.JSONArray()).toString(),
+                ApkMirrorApiParser.requestBody(excludeExperimental),
                 mapOf("Authorization" to ApkMirrorApiParser.PUBLIC_APKUPDATER_AUTH)
-            )
-            ApkMirrorApiParser.parse(response)
+            ))
+
+        val latest = try {
+            requestApi(excludeExperimental = false)
         } catch (e: Exception) {
             apiError = e.message ?: "Réponse API invalide"
             emptyList()
         }
+
+        // APKUpdater's app_exists API supports excluding alpha/beta releases.
+        // When the latest listing is a beta, query the most recent stable one too.
+        // It does not expose the full older-version archive.
+        val stable = if (latest.any { it.beta }) {
+            try {
+                requestApi(excludeExperimental = true).filterNot { it.beta }
+            } catch (e: Exception) {
+                apiError = listOfNotNull(apiError, e.message ?: "Version stable indisponible")
+                    .joinToString(" ; ")
+                emptyList()
+            }
+        } else emptyList()
+        val api = (latest + stable).distinctBy { it.key }
 
         // API app_exists only gives the latest version and its variants.
         // The public app listing can expose older releases, when accessible.
@@ -160,6 +176,17 @@ object ApkMirrorApiParser {
     const val PUBLIC_APKUPDATER_AUTH =
         "Basic YXBpLWFwa3VwZGF0ZXI6cm01cmNmcnVVakt5MDRzTXB5TVBKWFc4"
     private const val HOST = "www.apkmirror.com"
+
+    /** Exclude follows APKUpdater's documented app_exists request shape. */
+    fun requestBody(excludeExperimental: Boolean): String = JSONObject()
+        .put("pnames", org.json.JSONArray().put("deezer.android.app"))
+        .put("exclude", org.json.JSONArray().apply {
+            if (excludeExperimental) {
+                put("alpha")
+                put("beta")
+            }
+        })
+        .toString()
 
     fun absoluteLink(raw: String?): String? {
         if (raw.isNullOrBlank()) return null

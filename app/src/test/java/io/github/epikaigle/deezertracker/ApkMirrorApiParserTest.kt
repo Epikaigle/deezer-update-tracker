@@ -46,6 +46,17 @@ class ApkMirrorApiParserTest {
         }
     """.trimIndent()
 
+    @Test fun requestsLatestAndStableVersionsSeparately() {
+        val latest = org.json.JSONObject(ApkMirrorApiParser.requestBody(false))
+        assertEquals("deezer.android.app", latest.getJSONArray("pnames").getString(0))
+        assertEquals(0, latest.getJSONArray("exclude").length())
+
+        val stable = org.json.JSONObject(ApkMirrorApiParser.requestBody(true))
+        val excluded = stable.getJSONArray("exclude")
+        assertEquals(listOf("alpha", "beta"),
+            (0 until excluded.length()).map { excluded.getString(it) })
+    }
+
     @Test fun extractsAllVariantsWithDifferentArchAndBuilds() {
         val result = ApkMirrorApiParser.parse(sample)
         assertEquals(3, result.size)

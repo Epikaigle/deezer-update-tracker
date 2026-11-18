@@ -22,7 +22,7 @@ Les informations, préférences et versions observées sont conservées localeme
 | Source | Informations récupérées | Limites |
 | --- | --- | --- |
 | **Google Play** | Version courante via **Aurora GPlayAPI** et session anonyme Aurora OSS | Pas d'archive publique des versions passées fournie par ce connecteur. Les versions antérieures apparaissent uniquement si elles ont déjà été observées et enregistrées. La date de sortie peut être absente. |
-| **APKMirror** | Dernière publication et variantes depuis l'API `app_exists` ; tentative de lecture des publications antérieures depuis la page publique et le flux RSS | L'API ne fournit pas un historique complet. L'archive publique peut renvoyer HTTP 403, présenter un défi anti-bot ou changer de format. La lecture de la page est limitée aux publications récentes et les tentatives sont espacées. |
+| **APKMirror** | Dernière publication et, si celle-ci est une bêta, tentative de lecture de la dernière stable via l'API `app_exists` ; variantes et tentative d'accès aux archives publiques | L'API ne fournit pas un historique complet. L'archive publique peut renvoyer HTTP 403, présenter un défi anti-bot ou changer de format. La lecture de la page est limitée aux publications récentes et les tentatives sont espacées. |
 | **APKPure** | Historique des versions via un endpoint non officiel | La disponibilité du service et les métadonnées retournées peuvent évoluer. |
 
 Les résultats d'une plateforme ne sont **jamais attribués artificiellement à une autre**. Les formats, architectures et dates inconnus ne sont pas déduits ou inventés. Le premier relevé réussi de chaque source établit un point de départ sans envoyer d'alertes rétroactives ; les nouvelles versions observées ensuite peuvent déclencher des notifications.
