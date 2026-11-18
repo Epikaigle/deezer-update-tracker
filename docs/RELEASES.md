@@ -17,8 +17,8 @@
    - `ANDROID_KEY_PASSWORD`: key password.
 
 4. Set `versionCode` to a larger number and `versionName` to the matching semantic version in `app/build.gradle.kts`.
-5. Commit and push the change. Add a tag like `v0.1.0` and push it.
-6. The **Signed GitHub Release** workflow creates a signed APK and publishes it in Releases. GitHub serves an asset `digest` (SHA-256); the app verifies that digest before presenting Android's installer.
+5. The first production release `v0.1.0` is automatically published by the production workflow when its signature is validated (and only if that release does not already exist). For subsequent releases, commit the version bump, then create and push a matching tag such as `v0.2.0`.
+6. The **Signed GitHub Release** tag workflow creates a signed APK, validates its Android signature and publishes it in Releases. GitHub serves an asset `digest` (SHA-256); the app verifies that digest before presenting Android's installer.
 7. Test upgrading a **production signed APK** to a newer **production signed APK**. Debug builds use a different signature and intentionally cannot upgrade signed production builds.
 
 If you lose the production keystore or change the application ID, existing Android installations generally cannot be upgraded in place. Back up the key and its secrets safely.
@@ -36,3 +36,9 @@ The repository includes Gradle Wrapper 8.9 for local builds. GitHub Actions uses
 - Subsequent unseen versions cause a notification, without duplicating the same version across stores.
 - Bêta releases are collected; switch off **Inclure les versions bêta** to hide them and prevent notifications for them.
 - Published date is provided by the source; `detectedAt` is our first sighting time.
+
+## One-time initial production publication
+
+The `Production APK (signed)` workflow runs on trusted pushes to `main`. If all four secrets exist and the PKCS12 signing key works, it verifies the release signature, uploads the signed artifact and publishes `v0.1.0` once. It never overwrites an existing release. Later pushes only produce a signed artifact; to publish future app versions, bump the Android version and use the tagged release workflow.
+
+**Never share or upload a private signing kit to the public repo.** The GitHub Actions secrets API does not reveal secret values; only a successful signed CI run verifies the setup.
