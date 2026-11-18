@@ -42,8 +42,10 @@ jobs:
       - name: Verify Android version metadata
         shell: bash
         run: |
-          grep -Eq 'versionCode = 1' app/build.gradle.kts
-          grep -Eq 'versionName = "0.1.0"' app/build.gradle.kts
+          grep -Eq 'versionCode = [1-9][0-9]*' app/build.gradle.kts
+          VERSION="$(sed -nE 's/.*versionName = "([0-9]+\\.[0-9]+\\.[0-9]+)".*/\\1/p' app/build.gradle.kts | head -n 1)"
+          test -n "$VERSION" || { echo "Invalid Android versionName"; exit 1; }
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
       - name: Prepare private keystore
         shell: bash
         env:
@@ -75,7 +77,7 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           mkdir -p dist
-          cp "$APK" dist/deezer-update-tracker-v0.1.0.apk
+          cp "$APK" dist/deezer-update-tracker-v${APP_VERSION}.apk
           cd dist
           sha256sum *.apk > SHA256SUMS.txt
       - name: Upload signed build (even when a release already exists)
@@ -93,6 +95,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [ "$APP_VERSION" != "0.1.0" ]; then
+            echo "Only the initial release is created automatically; later versions use release.yml."
+            exit 0
+          fi
           if gh release view v0.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "v0.1.0 already exists; avoiding an accidental overwrite."
           else
