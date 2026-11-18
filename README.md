@@ -4,7 +4,7 @@ Application Android communautaire **non officielle** pour surveiller les publica
 
 ## Fonctionnalités
 
-- Trois sources surveillées indépendamment : **APKMirror** (flux RSS public), **APKPure** (historique de versions) et **Google Play** (métadonnées publiques lorsque la version est affichée).
+- Trois sources surveillées indépendamment : **APKMirror** (flux RSS public), **APKPure** (historique de versions) et **Google Play** (métadonnées via Aurora GPlayAPI et jeton anonyme).
 - Versions stables **et bêta**, avec dates publiées lorsqu'elles sont disponibles, **codes de version Android** si la source les fournit, date de détection, liens et historique local.
 - Notifications Android sur les nouvelles versions, sans doublon entre sources.
 - Choix des sources à activer, accessible dans l'onglet Paramètres.
@@ -13,11 +13,11 @@ Application Android communautaire **non officielle** pour surveiller les publica
 - Recherche de mises à jour de **Deezer Update Tracker** via GitHub Releases et installation d'une APK signée depuis l'application, après confirmation Android.
 - Fonctionne sans installer Deezer ni accéder à la liste des applications du téléphone.
 
-> ⚠️ **Statut : prototype en développement.** Les sites tiers peuvent renvoyer des CAPTCHA/403 ou ne pas exposer de version exploitable. Une source inaccessible est signalée en erreur et n'est jamais interprétée comme « aucune mise à jour ». Google Play peut ne pas exposer le numéro de version dans son HTML public. Aucune promesse de couverture exhaustive ni de détection en temps réel.
+> ⚠️ **Statut : prototype en développement.** Les sites tiers peuvent renvoyer des CAPTCHA/403 ou ne pas exposer de version exploitable. Une source inaccessible est signalée en erreur et n'est jamais interprétée comme « aucune mise à jour ». Aurora OSS peut limiter ou refuser les connexions anonymes. Aucune promesse de couverture exhaustive ni de détection en temps réel.
 
 ## Sources et confidentialité
 
-Les requêtes sont émises **depuis le téléphone** vers les sites concernés. Aucun compte, aucune télémétrie et aucun serveur personnel. Les versions et les préférences restent en stockage privé Android. Aucun CAPTCHA n'est contourné et aucun secret privé de projet tiers n'est copié. L'endpoint APKPure non officiel utilise l'en-tête de client public `projecta`, documenté dans les adaptateurs open source ; son fonctionnement peut changer à tout moment.
+Les requêtes sont émises **depuis le téléphone** vers les sites concernés. Pour Google Play, l'app envoie à **Aurora OSS** un profil technique Android (modèle, build et autres informations système) pour obtenir une session anonyme ; aucun compte Google personnel n'est requis. Aucun compte, aucune télémétrie et aucun serveur personnel. Les versions et les préférences restent en stockage privé Android. Aucun CAPTCHA n'est contourné et aucun secret privé de projet tiers n'est copié. L'endpoint APKPure non officiel utilise l'en-tête de client public `projecta`, documenté dans les adaptateurs open source ; son fonctionnement peut changer à tout moment.
 
 La date de publication affichée vient de la source ; si elle est indisponible, seule la date de **première détection** est affichée.
 

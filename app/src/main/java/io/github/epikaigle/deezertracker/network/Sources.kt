@@ -1,5 +1,12 @@
 package io.github.epikaigle.deezertracker.network
 
+import android.content.Context
+import com.aurora.gplayapi.data.models.AuthData
+import com.aurora.gplayapi.helpers.AppDetailsHelper
+import com.google.gson.Gson
+import io.github.epikaigle.deezertracker.network.play.NativeDeviceInfoProvider
+import io.github.epikaigle.deezertracker.network.play.PlayHttpClient
+import okhttp3.Cache
 import io.github.epikaigle.deezertracker.model.Release
 import io.github.epikaigle.deezertracker.model.Source
 import io.github.epikaigle.deezertracker.model.SourceResult
@@ -92,27 +99,58 @@ class ApkPureHistory : VersionSource {
     }
 }
 
-class GooglePlayPage : VersionSource {
+
+/** APKUpdater-style anonymous Aurora GPlayAPI Google Play metadata provider. */
+class GooglePlayPage(private val context: Context) : VersionSource {
     override val source = Source.GOOGLE_PLAY
-    override suspend fun fetch(client: SourceClient): List<Release> {
-        // Public Play HTML does not consistently expose a version; report unavailable rather than invent one.
-        val html = client.get("${source.website}&hl=en&gl=US")
-        val doc = Jsoup.parse(html)
-        val version = doc.selectFirst("meta[itemprop=softwareVersion]")?.attr("content")
-            ?.takeIf { it.isNotBlank() }
-            ?: Regex(""""softwareVersion"\s*:\s*"([^"]+)"""").find(html)?.groupValues?.get(1)
-            ?: throw IOException("Google Play n'affiche pas le numéro de version publiquement")
-        val parsed = VersionParsing.extract(version)
-            ?: throw IOException("Version Play non exploitable")
-        return listOf(Release(source, parsed, source.website, VersionParsing.isBeta(version), null))
+
+    override suspend fun fetch(client: SourceClient): List<Release> = withContext(Dispatchers.IO) {
+        val http = PlayHttpClient(Cache(java.io.File(context.cacheDir, "aurora-play-http"), 5L * 1024 * 1024))
+        val gson = Gson()
+        val prefs = context.getSharedPreferences("aurora_play_anonymous", Context.MODE_PRIVATE)
+
+        fun anonymousAuth(): AuthData {
+            val profile = NativeDeviceInfoProvider(context).getNativeDeviceProperties()
+            val response = http.postAuth("https://auroraoss.com/api/auth",
+                gson.toJson(profile).toByteArray(Charsets.UTF_8))
+            if (!response.isSuccessful)
+                throw IOException("Aurora OSS : authentification anonyme indisponible (HTTP ${response.code})")
+            val auth = gson.fromJson(String(response.responseBytes, Charsets.UTF_8), AuthData::class.java)
+                ?: throw IOException("Aurora OSS : réponse d'authentification vide")
+            if (auth.email.isBlank()) throw IOException("Aurora OSS : aucun compte anonyme")
+            prefs.edit().putString("credentials", gson.toJson(auth)).apply()
+            return auth
+        }
+
+        fun details(auth: AuthData): Release {
+            val app = AppDetailsHelper(auth).using(http).getAppByPackageName("deezer.android.app")
+            return PlayVersionMapping.map(app.versionName, app.versionCode)
+        }
+        val cached = runCatching {
+            prefs.getString("credentials", null)?.let { gson.fromJson(it, AuthData::class.java) }
+                ?.takeIf { it.email.isNotBlank() }
+        }.getOrNull()
+        listOf(if (cached == null) details(anonymousAuth())
+               else runCatching { details(cached) }.getOrElse { details(anonymousAuth()) })
+    }
+}
+
+/** Reject missing version names rather than falsely claiming an update. */
+object PlayVersionMapping {
+    fun map(versionName: String, versionCode: Long): Release {
+        val version = VersionParsing.extract(versionName)
+            ?: throw IOException("Google Play via Aurora : version Deezer non exploitable")
+        return Release(Source.GOOGLE_PLAY, version, Source.GOOGLE_PLAY.website,
+            VersionParsing.isBeta(versionName), null, versionCode = versionCode.takeIf { it > 0 })
     }
 }
 
 suspend fun readAllSources(
+    context: Context,
     enabled: Set<Source> = Source.entries.toSet()
 ): List<SourceResult> = coroutineScope {
     val client = SourceClient()
-    listOf(ApkMirrorFeed(), ApkPureHistory(), GooglePlayPage())
+    listOf(ApkMirrorFeed(), ApkPureHistory(), GooglePlayPage(context))
         .filter { it.source in enabled }
         .map { provider ->
         async(Dispatchers.IO) {
