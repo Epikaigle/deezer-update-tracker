@@ -18,6 +18,17 @@ class HistoryStore(context: Context) {
         get() = prefs.getBoolean("include_beta", true)
         set(value) { prefs.edit().putBoolean("include_beta", value).apply() }
 
+    var enabledSources: Set<Source>
+        get() {
+            val raw = prefs.getStringSet("sources", null) ?: return Source.entries.toSet()
+            return raw.mapNotNull { name ->
+                Source.entries.firstOrNull { it.name == name }
+            }.toSet()
+        }
+        set(value) {
+            prefs.edit().putStringSet("sources", value.mapTo(mutableSetOf()) { it.name }).apply()
+        }
+
     @Synchronized
     fun snapshot(): Snapshot {
         val history = prefs.getString("releases", "[]") ?: "[]"
@@ -25,7 +36,7 @@ class HistoryStore(context: Context) {
         return Snapshot(
             decodeReleases(history).sortedByDescending { it.detectedAt },
             decodeStatus(statuses).sortedBy { it.source.ordinal },
-            frequencyMinutes, includeBeta
+            frequencyMinutes, includeBeta, enabledSources
         )
     }
 

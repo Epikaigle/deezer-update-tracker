@@ -24,20 +24,38 @@ import io.github.epikaigle.deezertracker.model.Snapshot
 import io.github.epikaigle.deezertracker.network.readAllSources
 import io.github.epikaigle.deezertracker.storage.HistoryStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 class TrackerEngine(private val context: Context) {
+    companion object {
+        // WorkManager and UI use separate instances. Prevent races in shared preferences
+        // and duplicate notifications when manual/background checks overlap.
+        private val checkMutex = Mutex()
+    }
+
     /** Manual checks never notify. "Jamais" also disables the worker entirely. */
     suspend fun check(background: Boolean): Snapshot = withContext(Dispatchers.IO) {
-        val store = HistoryStore(context)
-        if (background && store.frequencyMinutes == 0) return@withContext store.snapshot()
-        val results = readAllSources()
-        val fresh = store.merge(results)
-        if (background && store.frequencyMinutes != 0 && fresh.isNotEmpty()) {
-            UpdateNotifications.show(context, fresh)
+        checkMutex.lock()
+        try {
+            val store = HistoryStore(context)
+            if (background && store.frequencyMinutes == 0) {
+                return@withContext store.snapshot()
+            }
+            val enabled = store.enabledSources
+            if (enabled.isEmpty()) {
+                return@withContext store.snapshot()
+            }
+            val results = readAllSources(enabled)
+            val fresh = store.merge(results)
+            if (background && store.frequencyMinutes != 0 && fresh.isNotEmpty()) {
+                UpdateNotifications.show(context, fresh)
+            }
+            store.snapshot()
+        } finally {
+            checkMutex.unlock()
         }
-        store.snapshot()
     }
 }
 
@@ -58,8 +76,9 @@ object TrackerScheduler {
 
     fun configure(context: Context) {
         val work = WorkManager.getInstance(context)
-        val interval = HistoryStore(context).frequencyMinutes
-        if (interval == 0) {
+        val store = HistoryStore(context)
+        val interval = store.frequencyMinutes
+        if (interval == 0 || store.enabledSources.isEmpty()) {
             work.cancelUniqueWork(JOB)
             UpdateNotifications.dismiss(context)
             return

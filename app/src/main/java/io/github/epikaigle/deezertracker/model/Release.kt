@@ -30,7 +30,8 @@ data class Snapshot(
     val releases: List<Release>,
     val statuses: List<SourceStatus>,
     val frequencyMinutes: Int,
-    val includeBeta: Boolean
+    val includeBeta: Boolean,
+    val enabledSources: Set<Source> = Source.entries.toSet()
 )
 
 data class SourceResult(
