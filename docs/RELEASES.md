@@ -1,58 +1,49 @@
-# Release and signing guide
+# Compilation, signature et publication Android
 
-**Never commit a production keystore, password, token or decoded key to this public repository.**
+Ce document explique **la procédure permanente** de publication. Les changements propres à une version sont conservés dans [GitHub Releases](https://github.com/Epikaigle/deezer-update-tracker/releases), et non dans le README.
 
-1. Make the GitHub repository **public** (Settings → General → Danger Zone → Change repository visibility).
-2. Generate **one permanent production keystore** on a trusted workstation:
+## Principes
 
-   ```bash
-   keytool -genkeypair -v -keystore deezer-release.jks -alias deezer-release \
-     -keyalg RSA -keysize 3072 -validity 10000
-   ```
+- Toutes les modifications se font **directement sur `main`**, sans branche temporaire.
+- Les commits sur `main` exécutent la validation Android (`.github/workflows/android.yml`).
+- Le workflow de production (`.github/workflows/production.yml`) démarre uniquement lorsque des fichiers de l'application ou de sa configuration de construction changent, ou sur déclenchement manuel. **Les modifications du README et de la documentation ne déclenchent pas une nouvelle publication signée.**
+- Une **nouvelle version** exige une augmentation de `versionCode` et une mise à jour cohérente de `versionName` dans `app/build.gradle.kts`. Le workflow ignore toute release déjà publiée pour ce nom de version ; il n'écrase pas une APK existante.
+- Les APK de production successives conservent le **même identifiant Android et le même certificat de signature**. Les APK debug, signées différemment, ne peuvent pas remplacer une installation de production.
 
-3. Add four repository Actions secrets in Settings → Secrets and variables → Actions:
-   - `ANDROID_KEYSTORE_BASE64`: full base64 of the JKS (Linux: `base64 -w0 deezer-release.jks`).
-   - `ANDROID_KEYSTORE_PASSWORD`: keystore password.
-   - `ANDROID_KEY_ALIAS`: alias (example `deezer-release`).
-   - `ANDROID_KEY_PASSWORD`: key password.
+## Secrets et signature
 
-4. Set `versionCode` to a larger number and `versionName` to the matching semantic version in `app/build.gradle.kts`.
-5. Update `versionCode` and `versionName` together, commit the change and merge into `main`. The **Production APK (signed)** workflow runs tests, builds with the permanent signing key, verifies `apksigner` and publishes the version tag if it does not already exist. It will never overwrite an already released APK.
-6. Alternatively, tags matching the version can trigger the **Signed GitHub Release** workflow. Avoid publishing twice for the same tag. GitHub serves an asset `digest` (SHA-256); the app verifies that digest before presenting Android's installer.
-7. Test upgrading a **production signed APK** to a newer **production signed APK**. Debug builds use a different signature and intentionally cannot upgrade signed production builds.
+Les quatre secrets GitHub Actions nécessaires sont :
 
-If you lose the production keystore or change the application ID, existing Android installations generally cannot be upgraded in place. Back up the key and its secrets safely.
+| Secret | Utilisation |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | Contenu Base64 du fichier de signature de production |
+| `ANDROID_KEYSTORE_PASSWORD` | Mot de passe du magasin de clés |
+| `ANDROID_KEY_ALIAS` | Alias de la clé de production |
+| `ANDROID_KEY_PASSWORD` | Mot de passe de la clé |
 
-Android requires user confirmation to install the APK. If Android requests permission to install from this source, approve it and tap the update button again. No silent installation, privilege escalation or CAPTCHA bypass is performed.
+La configuration Android lit un magasin de clés **PKCS#12** ; les secrets et la clé privée ne doivent **jamais être enregistrés dans le code, le README, les logs ou les fichiers publics**. Conserver une sauvegarde sûre du magasin de clés : si la clé est perdue ou remplacée, une mise à jour Android en place peut devenir impossible.
 
-## Build and source limitations
+Le workflow de production décode temporairement la clé dans l'environnement GitHub Actions, exécute les tests, compile la release, vérifie la signature avec `apksigner`, compare le certificat avec celui de la première publication officielle, produit une somme SHA-256 et supprime le fichier temporaire de clé.
 
-The repository includes Gradle Wrapper 8.9 for local builds. GitHub Actions uses the CI-installed Gradle 8.9. Google Play's public HTML might not expose a version at all, APKMirror RSS might require a challenge, and APKPure's unofficial endpoint might change. Source failures are shown in the app, not silently suppressed.
+## Procédure de publication
 
-## Version tracking behavior
+1. Terminer les modifications et les tests sur `main`.
+2. Modifier **uniquement si une nouvelle APK doit être publiée** les propriétés `versionCode` (valeur strictement supérieure) et `versionName` dans `app/build.gradle.kts`.
+3. Enregistrer le changement sur `main`.
+4. Vérifier les résultats des workflows **Android CI** et **Production APK (signed)** dans l'onglet Actions. La compilation, les tests, la vérification du certificat et la publication doivent réussir.
+5. Récupérer l'APK signée et le fichier de sommes de contrôle dans [GitHub Releases](https://github.com/Epikaigle/deezer-update-tracker/releases).
+6. Tester sur un vrai téléphone la mise à jour depuis **la version de production précédente** sans désinstaller l'application. Vérifier la conservation de l'historique, des préférences et du même identifiant de package.
 
-- Notification frequency **Jamais** cancels background work. Opening the app still performs a manual-mode refresh, but no notification is issued.
-- First successful response **per source** creates a baseline; imported historical releases never spam notifications.
-- Subsequent unseen versions cause a notification, without duplicating the same version across stores.
-- Bêta releases are collected; switch off **Inclure les versions bêta** to hide them and prevent notifications for them.
-- Published date is provided by the source; `detectedAt` is our first sighting time.
+Un workflow alternatif (`.github/workflows/release.yml`) est également présent pour les tags `v*`. Éviter toute publication concurrente pour un même tag : utiliser de préférence le processus automatique sur `main`.
 
-## One-time initial production publication
+## Vérifications de non-régression
 
-The `Production APK (signed)` workflow runs on trusted pushes to `main`. If all four secrets exist and the PKCS12 signing key works, it runs tests, verifies the release signature, uploads the signed artifact, and publishes the new version exactly once. It never overwrites existing releases. GitHub creates the matching tag when publishing.
+- APKMirror, APKPure et Google Play sont interrogés indépendamment ; une erreur d'une source n'efface pas son historique local.
+- La première lecture d'une source établit le point de départ sans notifications rétroactives ; les nouvelles versions sont dédoublonnées entre sources.
+- Le mode **Jamais** désactive la surveillance périodique et les notifications ; l'actualisation à l'ouverture reste disponible.
+- Les dates affichées proviennent des sources ; en leur absence, elles restent inconnues. L'interface ne montre pas la date de première détection.
+- L'historique présente les sources en lignes dans l'ordre **Google Play, APKMirror, APKPure**, avec les variantes techniques lorsqu'elles sont effectivement connues.
+- Tester les écrans étroits et larges, les modes clair/sombre, le redimensionnement des polices, TalkBack, les erreurs HTTP et les sources hors ligne.
+- Confirmer l'installation manuellement dans Android. Aucun workflow ou build CI ne remplace un test réel de mise à jour.
 
-**Never share or upload a private signing kit to the public repo.** The GitHub Actions secrets API does not reveal secret values; only a successful signed CI run verifies the setup.
-
-## Device acceptance checklist
-
-Test a real update **v0.1.0 → v0.1.1**, preserving the same Android application ID and signing key:
-- Launch v0.1.0, record preferences and local version history.
-- Observe v0.1.1 on the Accueil page (GitHub Releases).
-- Tap download/install; approve unknown-apps permission if Android asks; confirm OS installation.
-- Relaunch: version reads v0.1.1, no duplicate app icon, preferences/history intact.
-- Check no warning about signature incompatibility or downgrade.
-- Verify manual mode Jamais does not produce background notifications.
-- Verify APKMirror, APKPure and Google Play independently while offline, with one source failing, and with beta on/off.
-- Test compact phone widths, landscape, tablets, accessibility font scaling, dark mode and TalkBack.
-
-The build and unit tests cannot fully replace UI/device testing.
+Les connecteurs externes peuvent être modifiés, bloqués ou limités par leurs fournisseurs. La compilation réussie d'une APK ne garantit pas l'accès en temps réel à chaque source.
